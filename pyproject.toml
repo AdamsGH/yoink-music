@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yoink-music"
+version = "0.1.0"
+description = "Music link aggregator plugin for yoink-bot (Odesli/song.link)"
+requires-python = ">=3.11"
+dependencies = [
+    "yoink-core",
+    "httpx[socks]>=0.27",
+    "python-telegram-bot>=21",
+    "ytmusicapi>=1.7",
+    "yandex-music>=2.0",
+]
+
+[project.entry-points."yoink.plugins"]
+music = "yoink_music.plugin:MusicPlugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yoink_music"]

@@ -188,13 +188,15 @@ async def _search_youtube(info: "TrackInfo") -> str | None:
         return None
 
 
-async def _fetch_thumbnail(url: str) -> bytes | None:
-    """Fetch thumbnail bytes for send_audio thumbnail param."""
+async def _fetch_thumbnail(url: str):
+    """Fetch thumbnail as InputFile for send_audio thumbnail param."""
     try:
+        import io
         import httpx
+        from telegram import InputFile
         resp = await httpx.AsyncClient().get(url, timeout=5, follow_redirects=True)
         if resp.status_code == 200:
-            return resp.content
+            return InputFile(io.BytesIO(resp.content), filename="cover.jpg")
     except Exception:
         pass
     return None

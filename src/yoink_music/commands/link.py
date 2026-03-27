@@ -3,17 +3,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 
-from telegram import Message, Update
-from telegram.constants import ParseMode
+from telegram import LinkPreviewOptions, Message, Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from yoink.core.bot.access import AccessPolicy, require_access
 from yoink.core.db.models import UserRole
+from yoink_music.emoji_ids import format_artist_entities, format_track_entities
 from yoink_music.config import MusicConfig
-from yoink_music.platforms import extract_music_urls, MUSIC_URL_RE
+from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
+from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
-from yoink_music.types import TrackInfo
+from yoink_music.types import ArtistInfo, TrackInfo
 
 _MUSIC_POLICY = AccessPolicy(
     min_role=UserRole.user,
@@ -24,27 +26,13 @@ _MUSIC_POLICY = AccessPolicy(
 
 logger = logging.getLogger(__name__)
 
-
-def _format_reply(info: TrackInfo) -> str:
-    """odesli-bot style: Artist - Title\nPlatform | Platform | ...
-
-    Hidden thumbnail anchor at the start triggers Telegram link preview.
-    """
-    header = f"<b>{info.artist}</b> - {info.title}" if info.artist else f"<b>{info.title}</b>"
-    link_parts = [f'<a href="{url}">{name}</a>' for _, name, url in info.links]
-    links_line = " | ".join(link_parts)
-    if info.thumbnail_url:
-        hidden = f'<a href="{info.thumbnail_url}">&#8203;</a>'
-        return f"{hidden}{header}\n{links_line}"
-    return f"{header}\n{links_line}"
+_PLAYLIST_RE = re.compile(
+    r"spotify\.com/(?:intl-[a-z]+/)?playlist/", re.IGNORECASE
+)
 
 
 def _source_url_from_entities(msg: Message) -> str | None:
-    """Extract the first music platform URL from TEXT_LINK entities.
-
-    Used for via_bot messages where the URL is not in msg.text but in entities.
-    Returns the first URL that matches a known music platform.
-    """
+    """Extract the first music platform URL from TEXT_LINK entities."""
     for entity in msg.entities or []:
         if entity.type.name == "TEXT_LINK" and entity.url:
             if MUSIC_URL_RE.search(entity.url):
@@ -57,7 +45,6 @@ async def _handle_music_link(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """Handle music URLs pasted directly in chat - send card + optional download."""
     msg: Message | None = update.effective_message
     if not msg:
         return
@@ -75,6 +62,14 @@ async def _handle_music_link(
     file_cache = context.bot_data.get("file_cache")
 
     for url, _platform in found:
+        if _PLAYLIST_RE.search(url):
+            logger.debug("Skipping Spotify playlist URL: %s", url)
+            continue
+
+        if SPOTIFY_ARTIST_RE.search(url):
+            await _handle_artist_url(msg, url, resolver, cfg)
+            continue
+
         try:
             info = await resolver.resolve(url)
         except ResolverError as exc:
@@ -84,9 +79,18 @@ async def _handle_music_link(
         if not info.links:
             continue
 
+        text_out, entities = format_track_entities(info)
+        preview = None
+        if info.thumbnail_url:
+            preview = LinkPreviewOptions(
+                url=info.thumbnail_url,
+                show_above_text=True,
+                prefer_large_media=True,
+            )
         await msg.reply_text(
-            _format_reply(info),
-            parse_mode=ParseMode.HTML,
+            text_out,
+            entities=entities,
+            link_preview_options=preview,
         )
 
         if cfg and cfg.download_enabled:
@@ -99,16 +103,45 @@ async def _handle_music_link(
                 ))
 
 
+async def _handle_artist_url(
+    msg: Message,
+    url: str,
+    resolver: MusicResolver,
+    cfg: MusicConfig | None,
+) -> None:
+    try:
+        info = await resolve_spotify_artist(
+            url,
+            resolver._client,
+            client_id=cfg.spotify_client_id if cfg else None,
+            client_secret=cfg.spotify_client_secret if cfg else None,
+            proxy=cfg.proxy_for("spotify") if cfg else None,
+        )
+    except ResolverError as exc:
+        logger.warning("Artist resolve failed for %s: %s", url, exc)
+        return
+
+    text_out, entities = format_artist_entities(info)
+    preview = None
+    if info.thumbnail_url:
+        preview = LinkPreviewOptions(
+            url=info.thumbnail_url,
+            show_above_text=True,
+            prefer_large_media=True,
+        )
+    await msg.reply_text(
+        text_out,
+        entities=entities,
+        link_preview_options=preview,
+    )
+
+
 @require_access(_MUSIC_POLICY)
 async def _handle_inline_card(
     update: Update,
     context: ContextTypes.DEFAULT_TYPE,
 ) -> None:
-    """Handle music cards sent via inline mode - download only, card already sent.
-
-    When a user picks a result from @bot inline, Telegram sends a message with
-    via_bot set. The card is already in chat - we only need to send the audio.
-    """
+    """Handle music cards sent via inline mode - download only, card already sent."""
     msg: Message | None = update.effective_message
     if not msg or not msg.via_bot:
         return
@@ -125,6 +158,9 @@ async def _handle_inline_card(
 
     source_url = _source_url_from_entities(msg)
     if not source_url:
+        return
+
+    if SPOTIFY_ARTIST_RE.search(source_url):
         return
 
     resolver: MusicResolver | None = context.bot_data.get("music_resolver")
@@ -149,7 +185,6 @@ async def _handle_inline_card(
 
 
 async def _download_and_log(bot, chat_id, info, cfg, *, reply_to_message_id, file_cache):
-    """Wrapper that logs any unhandled exception from the download task."""
     try:
         from yoink_music import downloader
         await downloader.send_track(
@@ -169,7 +204,6 @@ def register(app: Application) -> None:
         ),
         group=5,
     )
-    # group=-1: run before all other handlers to catch via_bot music cards
     app.add_handler(
         MessageHandler(
             filters.VIA_BOT & filters.TEXT,

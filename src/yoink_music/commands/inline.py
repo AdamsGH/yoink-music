@@ -9,38 +9,22 @@ from telegram import (
     InlineQueryResultArticle,
     InlineQueryResultsButton,
     InputTextMessageContent,
+    LinkPreviewOptions,
 )
-from telegram.constants import ParseMode
 from telegram.ext import ContextTypes
 
+from yoink_music.emoji_ids import _PLATFORM_NAMES, format_artist_entities, format_track_entities
+from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.parsers.youtube import TRACK_RE as YOUTUBE_RE
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
-from yoink_music.types import TrackInfo
+from yoink_music.types import ArtistInfo, TrackInfo
 
 logger = logging.getLogger(__name__)
 
 
 def _result_id(url: str) -> str:
     return hashlib.md5(url.encode()).hexdigest()[:16]
-
-
-def _format_links(info: TrackInfo) -> tuple[str, str]:
-    """Return (message_text, description) in odesli-bot style.
-
-    message_text: Artist - Title\nPlatform | Platform | ...
-    """
-    header = f"<b>{info.artist}</b> - {info.title}" if info.artist else f"<b>{info.title}</b>"
-    link_parts = [f'<a href="{url}">{name}</a>' for _, name, url in info.links]
-    links_line = " | ".join(link_parts)
-    if info.thumbnail_url:
-        hidden = f'<a href="{info.thumbnail_url}">&#8203;</a>'
-        message_text = f"{hidden}{header}\n{links_line}"
-    else:
-        message_text = f"{header}\n{links_line}"
-
-    platform_names = " | ".join(name for _, name, _ in info.links)
-    return message_text, platform_names
 
 
 async def handle_inline(
@@ -60,11 +44,9 @@ async def handle_inline(
         )
         return True
 
-    # Try known music platform URLs first
     if MUSIC_URL_RE.search(query_text):
         return await _handle_music_url(inline_query, context, query_text)
 
-    # Try plain YouTube URL - may be a music video; resolver will reject non-Music
     if YOUTUBE_RE.search(query_text):
         return await _handle_youtube_url(inline_query, context, query_text)
 
@@ -80,12 +62,27 @@ async def _handle_music_url(
     if not found:
         return False
 
+    cfg = context.bot_data.get("music_config")
     resolver: MusicResolver | None = context.bot_data.get("music_resolver")
     if resolver is None:
         return False
 
     results = []
     for url, platform in found:
+        if SPOTIFY_ARTIST_RE.search(url):
+            try:
+                artist_info = await resolve_spotify_artist(
+                    url,
+                    resolver._client,
+                    client_id=cfg.spotify_client_id if cfg else None,
+                    client_secret=cfg.spotify_client_secret if cfg else None,
+                    proxy=cfg.proxy_for("spotify") if cfg else None,
+                )
+                results.append(_make_artist_article(url, artist_info))
+            except ResolverError as exc:
+                logger.warning("Artist resolve failed for %s: %s", url, exc)
+            continue
+
         try:
             info = await resolver.resolve(url)
         except ResolverError as exc:
@@ -104,7 +101,7 @@ async def _handle_music_url(
         if not info.links:
             continue
 
-        results.append(_make_article(url, info))
+        results.append(_make_track_article(url, info))
 
     if not results:
         await inline_query.answer(
@@ -127,24 +124,18 @@ async def _handle_youtube_url(
     context: ContextTypes.DEFAULT_TYPE,
     query_text: str,
 ) -> bool:
-    """Try to resolve a plain YouTube URL as a music track.
-
-    Returns False if the video is not in the Music category so yoink-dl
-    can handle it as a regular video download.
-    """
     resolver: MusicResolver | None = context.bot_data.get("music_resolver")
     if resolver is None:
         return False
 
-    url = YOUTUBE_RE.search(query_text)
-    if not url:
+    m = YOUTUBE_RE.search(query_text)
+    if not m:
         return False
-    url_str = url.group(0)
+    url_str = m.group(0)
 
     try:
         info = await resolver.resolve(url_str)
     except ResolverError as exc:
-        # Not a Music category video - let yoink-dl handle it
         logger.debug("YouTube URL not a music track (%s): %s", url_str, exc)
         return False
 
@@ -152,23 +143,57 @@ async def _handle_youtube_url(
         return False
 
     await inline_query.answer(
-        [_make_article(url_str, info)],
+        [_make_track_article(url_str, info)],
         cache_time=300,
         is_personal=True,
     )
     return True
 
 
-def _make_article(url: str, info: TrackInfo) -> InlineQueryResultArticle:
-    message_text, description = _format_links(info)
+def _make_track_article(url: str, info: TrackInfo) -> InlineQueryResultArticle:
+    text, entities = format_track_entities(info, with_icons=False)
     card_title = f"{info.artist} - {info.title}" if info.artist else info.title
+    platform_names = " | ".join(_PLATFORM_NAMES.get(k, n) for k, n, _ in info.links)
+    preview = None
+    if info.thumbnail_url:
+        preview = LinkPreviewOptions(
+            url=info.thumbnail_url,
+            show_above_text=True,
+            prefer_large_media=True,
+        )
     return InlineQueryResultArticle(
         id=_result_id(url),
         title=card_title,
-        description=description,
+        description=platform_names,
         thumbnail_url=info.thumbnail_url,
         input_message_content=InputTextMessageContent(
-            message_text=message_text,
-            parse_mode=ParseMode.HTML,
+            message_text=text,
+            entities=entities,
+            link_preview_options=preview,
+        ),
+    )
+
+
+def _make_artist_article(url: str, info: ArtistInfo) -> InlineQueryResultArticle:
+    text, entities = format_artist_entities(info, with_icons=False)
+    platform_names = " | ".join(_PLATFORM_NAMES.get(k, n) for k, n, _ in info.platform_links)
+    genres_str = ", ".join(g.title() for g in info.genres[:2])
+    description = f"{genres_str}  {platform_names}" if genres_str else platform_names
+    preview = None
+    if info.thumbnail_url:
+        preview = LinkPreviewOptions(
+            url=info.thumbnail_url,
+            show_above_text=True,
+            prefer_large_media=True,
+        )
+    return InlineQueryResultArticle(
+        id=_result_id(url),
+        title=info.name,
+        description=description or "Artist",
+        thumbnail_url=info.thumbnail_url,
+        input_message_content=InputTextMessageContent(
+            message_text=text,
+            entities=entities,
+            link_preview_options=preview,
         ),
     )

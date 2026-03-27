@@ -23,7 +23,7 @@ PLATFORMS: dict[str, Platform] = {p.key: p for p in [
     _p("yandex", "Yandex Music", "", 0,
        r"https?://(?:[\w-]+\.)*music\.yandex\.(?:com|ru|by|kz)/(?:album|track)/[^\s.,]+"),
     _p("spotify", "Spotify", "", 1,
-       r"https?://(?:[\w-]+\.)*(?:spotify\.com/(?:intl-\w+/)?(?:album|track)/[^\s.,]+"
+       r"https?://(?:[\w-]+\.)*(?:spotify\.com/(?:intl-\w+/)?(?:album|track|artist|playlist)/[^\s.,]+"
        r"|tospotify\.com/[^\s.,]+|spotify\.link/[^\s]+)"),
     _p("deezer", "Deezer", "", 2,
        r"https?://(?:[\w-]+\.)*deezer\.com(?:/\w\w)?/(?:album|track)/[^\s.,]+"

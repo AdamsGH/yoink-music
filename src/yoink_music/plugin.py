@@ -39,11 +39,25 @@ class MusicPlugin:
             # False for non-music queries so dl still handles YouTube searches.
             access_policy=AccessPolicy(
                 min_role=UserRole.user,
+                plugin="music",
+                feature="inline",
                 check_group_enabled=False,
                 check_thread_policy=False,
                 silent_deny=True,
             ),
         )]
+
+    def get_features(self):
+        from yoink.core.plugin import FeatureSpec
+        return [
+            FeatureSpec(
+                plugin="music",
+                feature="inline",
+                label="Music Inline Search",
+                description="Search and share music links via inline queries (@bot query)",
+                default_min_role="user",
+            ),
+        ]
 
     def get_routes(self) -> APIRouter | None:
         return None

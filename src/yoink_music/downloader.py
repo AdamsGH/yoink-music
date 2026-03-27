@@ -78,64 +78,79 @@ async def send_track(
             )
             return True
 
-    yt_url = _find_youtube_url(info)
-    if not yt_url:
-        yt_url = await _search_youtube(info)
-    if not yt_url:
+    proxy = cfg.proxy_for("ytmusic") or cfg.proxy_for("spotify")
+
+    direct = _find_youtube_url(info)
+    searched: str | None = None
+
+    # Build candidate list lazily - try direct first, search on failure
+    direct_tried = set()
+    candidates: list[str] = []
+    if direct:
+        candidates.append(direct)
+        direct_tried.add(direct)
+
+    if not candidates:
+        # No direct link at all - search immediately
+        found = await _search_ytsearch(info)
+        if found:
+            candidates.append(found)
+
+    if not candidates:
         logger.info("No YouTube URL found for %r by %r, skipping download", info.title, info.artist)
         return False
 
-    proxy = cfg.proxy_for("ytmusic") or cfg.proxy_for("spotify")
-
-    logger.info("Downloading music: %r by %r from %s", info.title, info.artist, yt_url)
-    result = None
-    try:
-        result = await download_track(yt_url, proxy=proxy)
-        embed_tags(
-            result.path,
-            title=info.title,
-            artist=info.artist or "",
-            thumbnail_url=info.thumbnail_url,
-        )
-
-        with result.path.open("rb") as f:
-            msg = await bot.send_audio(
-                chat_id=chat_id,
-                audio=f,
+    for yt_url in candidates:
+        result = None
+        try:
+            logger.info("Downloading music: %r by %r from %s", info.title, info.artist, yt_url)
+            result = await download_track(yt_url, proxy=proxy)
+            embed_tags(
+                result.path,
                 title=info.title,
-                performer=info.artist or None,
-                duration=int(result.duration) if result.duration else None,
-                thumbnail=await _fetch_thumbnail(info.thumbnail_url) if info.thumbnail_url else None,
-                reply_to_message_id=reply_to_message_id,
+                artist=info.artist or "",
+                thumbnail_url=info.thumbnail_url,
             )
+            with result.path.open("rb") as f:
+                msg = await bot.send_audio(
+                    chat_id=chat_id,
+                    audio=f,
+                    title=info.title,
+                    performer=info.artist or None,
+                    duration=int(result.duration) if result.duration else None,
+                    thumbnail=await _fetch_thumbnail(info.thumbnail_url) if info.thumbnail_url else None,
+                    reply_to_message_id=reply_to_message_id,
+                )
+            if file_cache is not None and msg.audio:
+                await file_cache.put(
+                    cache_key,
+                    file_id=msg.audio.file_id,
+                    file_type="audio",
+                    title=f"{info.artist} - {info.title}" if info.artist else info.title,
+                    duration=result.duration,
+                )
+            return True
+        except TrackTooLargeError:
+            logger.info("Track too large: %r", info.title)
+            return False
+        except MusicDownloadError as exc:
+            logger.warning("Music download failed for %r from %s: %s — trying next", info.title, yt_url, exc)
+            # Append fallback search results on first failure
+            if len(candidates) == 1:
+                for url in await _search_all(info):
+                    if url not in direct_tried:
+                        candidates.append(url)
+        except Exception as exc:
+            logger.warning("Unexpected error for %r from %s: %s — trying next", info.title, yt_url, exc)
+        finally:
+            if result is not None:
+                try:
+                    shutil.rmtree(result.path.parent, ignore_errors=True)
+                except Exception:
+                    pass
 
-        if file_cache is not None and msg.audio:
-            from datetime import datetime, timezone, timedelta
-            await file_cache.put(
-                cache_key,
-                file_id=msg.audio.file_id,
-                file_type="audio",
-                title=f"{info.artist} - {info.title}" if info.artist else info.title,
-                duration=result.duration,
-            )
-
-        return True
-
-    except TrackTooLargeError:
-        logger.info("Track too large: %r", info.title)
-        return False
-    except MusicDownloadError as exc:
-        logger.warning("Music download failed for %r: %s", info.title, exc)
-        return False
-    except Exception as exc:
-        logger.warning("Unexpected error sending music %r: %s", info.title, exc)
-        return False
-    finally:
-        if result is not None:
-            try:
-                shutil.rmtree(result.path.parent, ignore_errors=True)
-            except Exception:
-                pass
+    logger.info("All sources exhausted for %r by %r", info.title, info.artist)
+    return False
 
 
 def _find_youtube_url(info: "TrackInfo") -> str | None:
@@ -149,11 +164,9 @@ def _find_youtube_url(info: "TrackInfo") -> str | None:
     return None
 
 
-async def _search_youtube(info: "TrackInfo") -> str | None:
-    """Find a YouTube Music video ID via ytmusicapi, fall back to yt-dlp ytsearch."""
+async def _search_ytmusic(info: "TrackInfo") -> str | None:
+    """Search YouTube Music via ytmusicapi."""
     query = f"{info.artist} {info.title}".strip() if info.artist else info.title
-
-    # Try YouTube Music first
     try:
         from ytmusicapi import YTMusic
         import asyncio
@@ -168,12 +181,15 @@ async def _search_youtube(info: "TrackInfo") -> str | None:
                 return f"https://music.youtube.com/watch?v={vid}"
     except Exception as exc:
         logger.debug("YTMusic search failed: %s", exc)
+    return None
 
-    # Fall back to yt-dlp ytsearch
+
+async def _search_ytsearch(info: "TrackInfo") -> str | None:
+    """Search regular YouTube via yt-dlp ytsearch."""
+    query = f"{info.artist} {info.title}".strip() if info.artist else info.title
     try:
         import asyncio
         import yt_dlp
-
         loop = asyncio.get_running_loop()
 
         def _search():
@@ -184,8 +200,20 @@ async def _search_youtube(info: "TrackInfo") -> str | None:
 
         return await loop.run_in_executor(None, _search)
     except Exception as exc:
-        logger.debug("yt-dlp ytsearch fallback failed: %s", exc)
-        return None
+        logger.debug("yt-dlp ytsearch failed: %s", exc)
+    return None
+
+
+async def _search_all(info: "TrackInfo") -> list[str]:
+    """Return all search candidates: ytmusicapi result + ytsearch result."""
+    results: list[str] = []
+    ytm = await _search_ytmusic(info)
+    if ytm:
+        results.append(ytm)
+    yts = await _search_ytsearch(info)
+    if yts and yts not in results:
+        results.append(yts)
+    return results
 
 
 async def _fetch_thumbnail(url: str):

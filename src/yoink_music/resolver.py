@@ -145,6 +145,7 @@ class MusicResolver:
         self._platforms: list[_PlatformDef] = []
         self._cache: dict[str, tuple[TrackInfo, float]] = {}
         self._client: httpx.AsyncClient | None = None
+        self._session_factory = None  # set by plugin.setup() for stats logging
 
     async def start(self) -> None:
         self._platforms = _build_platforms(self._cfg)
@@ -165,11 +166,14 @@ class MusicResolver:
                 return p
         return None
 
-    async def resolve(self, url: str) -> TrackInfo:
+    async def resolve(self, url: str, *, user_id: int | None = None) -> TrackInfo:
         norm = normalize_url(url)
         cached = self._cache.get(norm)
         if cached and time.monotonic() - cached[1] < self._cfg.cache_ttl:
-            return cached[0]
+            info = cached[0]
+            if user_id:
+                await self._log_resolve(user_id, info)
+            return info
 
         assert self._client is not None
 
@@ -230,7 +234,28 @@ class MusicResolver:
             links=links,
         )
         self._cache[norm] = (info, time.monotonic())
+        if user_id:
+            await self._log_resolve(user_id, info)
         return info
+
+    async def _log_resolve(self, user_id: int, info: TrackInfo) -> None:
+        """Write a row to music_resolve_log if session_factory is available."""
+        sf = self._session_factory
+        if not sf:
+            return
+        try:
+            from yoink_music.storage.models import MusicResolveLog
+            async with sf() as s:
+                s.add(MusicResolveLog(
+                    user_id=user_id,
+                    source_platform=info.links[0][0] if info.links else "unknown",
+                    artist=info.artist[:256] if info.artist else None,
+                    title=info.title[:256] if info.title else None,
+                    platforms_found=len(info.links),
+                ))
+                await s.commit()
+        except Exception:
+            logger.warning("Failed to log music resolve", exc_info=True)
 
 
 async def _artist_from_deezer_url(deezer_url: str, client: httpx.AsyncClient) -> str:

@@ -71,7 +71,7 @@ async def _handle_music_link(
             continue
 
         try:
-            info = await resolver.resolve(url)
+            info = await resolver.resolve(url, user_id=update.effective_user.id if update.effective_user else None)
         except ResolverError as exc:
             logger.warning("Resolve failed for %s: %s", url, exc)
             continue
@@ -168,7 +168,7 @@ async def _handle_inline_card(
         return
 
     try:
-        info = await resolver.resolve(source_url)
+        info = await resolver.resolve(source_url, user_id=update.effective_user.id if update.effective_user else None)
     except ResolverError as exc:
         logger.warning("Resolve failed for inline card %s: %s", source_url, exc)
         return

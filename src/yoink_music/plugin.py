@@ -21,7 +21,8 @@ class MusicPlugin:
         return MusicConfig
 
     def get_models(self) -> list:
-        return []
+        from yoink_music.storage.models import MusicResolveLog
+        return [MusicResolveLog]
 
     def get_handlers(self) -> list[HandlerSpec]:
         from yoink_music.commands import get_handler_specs
@@ -60,7 +61,8 @@ class MusicPlugin:
         ]
 
     def get_routes(self) -> APIRouter | None:
-        return None
+        from yoink_music.api.router import router
+        return router
 
     def get_locale_dir(self) -> Path | None:
         loc = Path(__file__).parent / "i18n" / "locales"
@@ -83,6 +85,7 @@ class MusicPlugin:
         from yoink_music import downloader as _dl_mod
 
         resolver = MusicResolver(cfg=self._config)
+        resolver._session_factory = ctx.session_factory
         await resolver.start()
         ctx.bot_data["music_resolver"] = resolver
         ctx.bot_data["music_config"] = self._config

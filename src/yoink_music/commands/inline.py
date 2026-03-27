@@ -84,7 +84,7 @@ async def _handle_music_url(
             continue
 
         try:
-            info = await resolver.resolve(url)
+            info = await resolver.resolve(url, user_id=inline_query.from_user.id if inline_query.from_user else None)
         except ResolverError as exc:
             logger.warning("Resolve failed for %s: %s", url, exc)
             await inline_query.answer(
@@ -134,7 +134,7 @@ async def _handle_youtube_url(
     url_str = m.group(0)
 
     try:
-        info = await resolver.resolve(url_str)
+        info = await resolver.resolve(url_str, user_id=inline_query.from_user.id if inline_query.from_user else None)
     except ResolverError as exc:
         logger.debug("YouTube URL not a music track (%s): %s", url_str, exc)
         return False

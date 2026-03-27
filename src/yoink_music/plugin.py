@@ -75,7 +75,7 @@ class MusicPlugin:
     def get_commands(self) -> list:
         return []
 
-    def get_help_section(self, role: str, lang: str) -> str:
+    def get_help_section(self, role: str, lang: str, granted_features: set[str] | None = None) -> str:
         return ""
 
     async def setup(self, ctx: PluginContext) -> None:

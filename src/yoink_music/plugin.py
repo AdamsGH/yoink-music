@@ -90,6 +90,10 @@ class MusicPlugin:
         ctx.bot_data["music_resolver"] = resolver
         ctx.bot_data["music_config"] = self._config
 
+        from yoink.core.activity import register_activity_provider  # noqa: PLC0415
+        from yoink_music.activity import music_activity_provider  # noqa: PLC0415
+        register_activity_provider("music", music_activity_provider)
+
         if self._config.download_enabled:
             if _dl_mod.is_available():
                 import logging

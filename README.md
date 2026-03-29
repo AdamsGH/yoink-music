@@ -41,10 +41,11 @@ Cards sent directly by the bot use custom emoji from the `MusicServicesIcons` pa
 When `MUSIC_DOWNLOAD_ENABLED=true`:
 
 1. Checks `file_id` cache (shared with yoink-dl) - instant re-send if cached
-2. Uses YouTube Music URL from resolved links, or searches via ytmusicapi / yt-dlp ytsearch
+2. Resolves canonical source URL - prefers Spotify or YouTube Music links from the resolved track
 3. Downloads at 192 kbps MP3 via yt-dlp
 4. Embeds ID3 tags (title, artist, cover art via mutagen)
 5. Sends as Telegram audio with thumbnail and caches `file_id`
+6. Writes a `download_log` entry on every outcome (ok, cached, and all error paths) with `user_id`, `group_id`, and `thread_id`
 
 Download is async - card is sent first, audio follows without blocking. Requires `yoink-dl` with `mutagen>=1.47`.
 

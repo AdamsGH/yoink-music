@@ -46,6 +46,10 @@ async def send_track(
     *,
     reply_to_message_id: int | None = None,
     file_cache=None,
+    dl_log=None,
+    user_id: int | None = None,
+    group_id: int | None = None,
+    thread_id: int | None = None,
 ) -> bool:
     """Download and send the track as an audio message.
 
@@ -71,11 +75,22 @@ async def send_track(
         cached = await file_cache.get(cache_key)
         if cached:
             logger.info("Music cache hit for %r by %r", info.title, info.artist)
-            await bot.send_audio(
+            msg = await bot.send_audio(
                 chat_id=chat_id,
                 audio=cached.file_id,
                 reply_to_message_id=reply_to_message_id,
             )
+            if dl_log and user_id:
+                source_url = _find_source_url(info) or info.title
+                await dl_log.write(
+                    user_id, source_url,
+                    title=f"{info.artist} - {info.title}" if info.artist else info.title,
+                    quality="audio", duration=cached.duration,
+                    file_size=cached.file_size,
+                    status="cached",
+                    group_id=group_id, thread_id=thread_id,
+                    message_id=msg.message_id if msg else None,
+                )
             return True
 
     proxy = cfg.proxy_for("ytmusic") or cfg.proxy_for("spotify")
@@ -98,6 +113,14 @@ async def send_track(
 
     if not candidates:
         logger.info("No YouTube URL found for %r by %r, skipping download", info.title, info.artist)
+        if dl_log and user_id:
+            source_url = _find_source_url(info)
+            await dl_log.write(
+                user_id, source_url or info.title,
+                title=f"{info.artist} - {info.title}" if info.artist else info.title,
+                status="error", error_msg="no_source_found",
+                group_id=group_id, thread_id=thread_id,
+            )
         return False
 
     for yt_url in candidates:
@@ -129,9 +152,30 @@ async def send_track(
                     title=f"{info.artist} - {info.title}" if info.artist else info.title,
                     duration=result.duration,
                 )
+            if dl_log and user_id:
+                source_url = _find_source_url(info) or yt_url
+                sent_msg_id = msg.message_id if msg else None
+                await dl_log.write(
+                    user_id, source_url,
+                    title=f"{info.artist} - {info.title}" if info.artist else info.title,
+                    quality="audio",
+                    file_size=result.file_size if hasattr(result, "file_size") else None,
+                    duration=result.duration,
+                    status="ok",
+                    group_id=group_id, thread_id=thread_id,
+                    message_id=sent_msg_id,
+                )
             return True
         except TrackTooLargeError:
             logger.info("Track too large: %r", info.title)
+            if dl_log and user_id:
+                source_url = _find_source_url(info) or yt_url
+                await dl_log.write(
+                    user_id, source_url,
+                    title=f"{info.artist} - {info.title}" if info.artist else info.title,
+                    quality="audio", status="error", error_msg="track_too_large",
+                    group_id=group_id, thread_id=thread_id,
+                )
             return False
         except MusicDownloadError as exc:
             logger.warning("Music download failed for %r from %s: %s — trying next", info.title, yt_url, exc)
@@ -150,7 +194,26 @@ async def send_track(
                     pass
 
     logger.info("All sources exhausted for %r by %r", info.title, info.artist)
+    if dl_log and user_id:
+        source_url = _find_source_url(info) or candidates[0] if candidates else info.title
+        await dl_log.write(
+            user_id, source_url,
+            title=f"{info.artist} - {info.title}" if info.artist else info.title,
+            quality="audio", status="error", error_msg="all_sources_exhausted",
+            group_id=group_id, thread_id=thread_id,
+        )
     return False
+
+
+def _find_source_url(info: "TrackInfo") -> str | None:
+    """Return the best canonical URL for logging - prefer Spotify/YTMusic over YouTube."""
+    for key in ("spotify", "ytmusic", "apple_music", "deezer"):
+        for k, _name, url in info.links:
+            if k == key:
+                return url
+    if info.links:
+        return info.links[0][2]
+    return None
 
 
 def _find_youtube_url(info: "TrackInfo") -> str | None:

@@ -96,10 +96,17 @@ async def _handle_music_link(
         if cfg and cfg.download_enabled:
             from yoink_music import downloader
             if downloader.is_available():
+                _uid = update.effective_user.id if update.effective_user else None
+                _group_id = msg.chat_id if msg.chat and msg.chat.type != "private" else None
+                _thread_id = msg.message_thread_id
                 asyncio.create_task(_download_and_log(
                     context.bot, msg.chat_id, info, cfg,
                     reply_to_message_id=msg.message_id,
                     file_cache=file_cache,
+                    dl_log=context.bot_data.get("download_log"),
+                    user_id=_uid,
+                    group_id=_group_id,
+                    thread_id=_thread_id,
                 ))
 
 
@@ -177,20 +184,31 @@ async def _handle_inline_card(
         return
 
     file_cache = context.bot_data.get("file_cache")
+    _uid = update.effective_user.id if update.effective_user else None
+    _group_id = msg.chat_id if msg.chat and msg.chat.type != "private" else None
     asyncio.create_task(_download_and_log(
         context.bot, msg.chat_id, info, cfg,
         reply_to_message_id=msg.message_id,
         file_cache=file_cache,
+        dl_log=context.bot_data.get("download_log"),
+        user_id=_uid,
+        group_id=_group_id,
+        thread_id=msg.message_thread_id,
     ))
 
 
-async def _download_and_log(bot, chat_id, info, cfg, *, reply_to_message_id, file_cache):
+async def _download_and_log(bot, chat_id, info, cfg, *, reply_to_message_id, file_cache,
+                            dl_log=None, user_id=None, group_id=None, thread_id=None):
     try:
         from yoink_music import downloader
         await downloader.send_track(
             bot, chat_id, info, cfg,
             reply_to_message_id=reply_to_message_id,
             file_cache=file_cache,
+            dl_log=dl_log,
+            user_id=user_id,
+            group_id=group_id,
+            thread_id=thread_id,
         )
     except Exception as exc:
         logger.exception("Unhandled error in music download task for %r: %s", info.title, exc)

@@ -24,7 +24,7 @@ async def search(
     result = await _search_ytmusicapi(query, title=title, artist=artist)
     if result:
         return result
-    logger.debug("YTMusic API found nothing, falling back to ytsearch")
+    logger.info("YTMusic API found nothing for %r, falling back to ytsearch", query)
     return await _search_ytsearch(query, title=title, artist=artist)
 
 
@@ -101,8 +101,10 @@ async def _search_ytsearch(
                 best_score = s
                 best_url = f"https://music.youtube.com/watch?v={vid}" if vid else None
         if best_score >= _MIN_SCORE and best_url:
+            logger.info("ytsearch fallback hit: score=%.2f url=%s", best_score, best_url)
             return best_url
+        logger.info("ytsearch fallback: best score %.2f below threshold", best_score)
         return None
     except Exception as exc:
-        logger.debug("ytsearch fallback failed: %s", exc)
+        logger.warning("ytsearch fallback failed: %s", exc)
         return None

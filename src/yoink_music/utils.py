@@ -40,6 +40,10 @@ def score(a: str, b: str) -> float:
     return difflib.SequenceMatcher(None, _norm(a), _norm(b)).ratio()
 
 
+_MIN_TITLE = 0.5
+_MIN_ARTIST = 0.4
+
+
 def track_score(
     candidate_artist: str,
     candidate_title: str,
@@ -48,18 +52,19 @@ def track_score(
 ) -> float:
     """Combined match score for a track candidate.
 
-    Returns the geometric mean of title and artist similarity so that
-    a wrong artist with a matching title (or vice versa) scores poorly.
-    Both components must be above their individual minimums for the
-    result to be usable.
+    Returns the geometric mean of title and artist similarity.
+    Both components must clear their individual floors (_MIN_TITLE,
+    _MIN_ARTIST) or the function returns 0.0 - this prevents a
+    perfect artist match from carrying a completely wrong title
+    over the adapter threshold.
     """
+    import math
     ts = score(candidate_title, expected_title)
-    # Artist field may be empty for some platforms - skip penalty if both empty
     if not expected_artist and not candidate_artist:
         return ts
     as_ = score(candidate_artist, expected_artist)
-    # Geometric mean: one bad component tanks the whole score
-    import math
+    if ts < _MIN_TITLE or (expected_artist and as_ < _MIN_ARTIST):
+        return 0.0
     return math.sqrt(ts * as_)
 
 

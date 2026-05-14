@@ -40,6 +40,19 @@ def _source_url_from_entities(msg: Message) -> str | None:
     return None
 
 
+def _music_urls_from_entities(msg: Message) -> list[str]:
+    """Extract all music platform URLs from TEXT_LINK entities."""
+    urls: list[str] = []
+    seen: set[str] = set()
+    for entity in msg.entities or []:
+        if entity.type.name == "TEXT_LINK" and entity.url:
+            url = entity.url
+            if url not in seen and MUSIC_URL_RE.search(url):
+                seen.add(url)
+                urls.append(url)
+    return urls
+
+
 @require_access(_MUSIC_POLICY)
 async def _handle_music_link(
     update: Update,
@@ -52,7 +65,11 @@ async def _handle_music_link(
     text = msg.text or msg.caption or ""
     found = extract_music_urls(text)
     if not found:
-        return
+        # URLs may be hidden in TEXT_LINK entities (e.g. forwarded Spotify cards)
+        entity_urls = _music_urls_from_entities(msg)
+        if not entity_urls:
+            return
+        found = [(url, None) for url in entity_urls]
 
     resolver: MusicResolver | None = context.bot_data.get("music_resolver")
     if resolver is None:

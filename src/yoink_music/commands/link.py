@@ -65,11 +65,13 @@ async def _handle_music_link(
     text = msg.text or msg.caption or ""
     found = extract_music_urls(text)
     if not found:
-        # URLs may be hidden in TEXT_LINK entities (e.g. forwarded Spotify cards)
+        # URLs may be hidden in TEXT_LINK entities (e.g. forwarded Spotify cards
+        # or bot-generated music cards). A single message card may have multiple
+        # platform links - all refer to the same track, so resolve only the first.
         entity_urls = _music_urls_from_entities(msg)
         if not entity_urls:
             return
-        found = [(url, None) for url in entity_urls]
+        found = [(entity_urls[0], None)]
 
     resolver: MusicResolver | None = context.bot_data.get("music_resolver")
     if resolver is None:

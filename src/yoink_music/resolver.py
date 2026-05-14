@@ -101,7 +101,7 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
                 url, proxy=soundcloud_proxy,
             ),
             adapter=lambda query, client, **kw: soundcloud_adapter.search(
-                query, _client_with_proxy(client, soundcloud_proxy), **kw
+                query, client, proxy=soundcloud_proxy, **kw
             ),
         ),
         _PlatformDef(

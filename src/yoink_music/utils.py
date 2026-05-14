@@ -26,10 +26,11 @@ def _norm(s: str) -> str:
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = s.lower()
-    # Strip common noise: featured artists, remix tags, remaster notes
-    s = re.sub(r"\(feat\.?[^)]*\)", "", s)
-    s = re.sub(r"\(ft\.?[^)]*\)", "", s)
-    s = re.sub(r"\(.*?remaster.*?\)", "", s)
+    # Strip all parenthetical suffixes: (feat. X), (Official Video), (Live 2025),
+    # (Remaster), (ft. X), etc. These add noise when comparing against clean
+    # metadata from Spotify/Deezer. Brackets too.
+    s = re.sub(r"\([^)]*\)", "", s)
+    s = re.sub(r"\[[^\]]*\]", "", s)
     s = re.sub(r"\s+", " ", s)
     return s.strip()
 

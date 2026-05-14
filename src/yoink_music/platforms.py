@@ -41,6 +41,8 @@ PLATFORMS: dict[str, Platform] = {p.key: p for p in [
        r"https?://[^\s.,]+\.bandcamp\.com/(?:album|track)/[^\s.,]+"),
     _p("tidal", "Tidal", "", 8,
        r"https?://(?:www\.|listen\.)?tidal\.com(?:/browse)?/(?:track|album)/\d+(?:/track/\d+)?"),
+    _p("qobuz", "Qobuz", "", 9,
+       r"https?://(?:www\.)?qobuz\.com/[a-z]{2}(?:-[a-z]{2})?/(?:album|track)/[^/\s,]+/[A-Za-z0-9]+"),
 ]}
 
 # Combined pattern to detect any supported music URL - used by the dispatcher

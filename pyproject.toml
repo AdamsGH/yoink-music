@@ -13,6 +13,7 @@ dependencies = [
     "python-telegram-bot>=21",
     "ytmusicapi>=1.7",
     "yandex-music>=2.0",
+    "aiohttp",
     "transliterate>=1.10",
 ]
 

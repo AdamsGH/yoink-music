@@ -52,6 +52,7 @@ class _PlatformDef:
 def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
     spotify_proxy = cfg.proxy_for("spotify")
     soundcloud_proxy = cfg.proxy_for("soundcloud")
+    apple_music_proxy = cfg.proxy_for("apple_music")
 
     return [
         _PlatformDef(
@@ -97,7 +98,7 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
             name="SoundCloud",
             url_re=soundcloud_parser.TRACK_RE,
             parser=lambda url, client: soundcloud_parser.parse(
-                url, _client_with_proxy(client, soundcloud_proxy),
+                url, proxy=soundcloud_proxy,
             ),
             adapter=lambda query, client, **kw: soundcloud_adapter.search(
                 query, _client_with_proxy(client, soundcloud_proxy), **kw
@@ -107,8 +108,12 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
             key="apple_music",
             name="Apple Music",
             url_re=apple_music_parser.TRACK_RE,
-            parser=apple_music_parser.parse,
-            adapter=apple_music_adapter.search,
+            parser=lambda url, client: apple_music_parser.parse(
+                url, _client_with_proxy(client, apple_music_proxy),
+            ),
+            adapter=lambda query, client, **kw: apple_music_adapter.search(
+                query, _client_with_proxy(client, apple_music_proxy), **kw
+            ),
         ),
         # Regular YouTube - must come after ytmusic so music.youtube.com is
         # matched first. Parser uses yt-dlp and requires Music category.

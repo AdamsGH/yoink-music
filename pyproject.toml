@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "yoink-core",
     "httpx[socks]>=0.27",
+    "curl-cffi>=0.7",
     "python-telegram-bot>=21",
     "ytmusicapi>=1.7",
     "yandex-music>=2.0",

@@ -41,7 +41,9 @@ PLATFORMS: dict[str, Platform] = {p.key: p for p in [
        r"https?://[^\s.,]+\.bandcamp\.com/(?:album|track)/[^\s.,]+"),
     _p("tidal", "Tidal", "", 8,
        r"https?://(?:www\.|listen\.)?tidal\.com(?:/browse)?/(?:track|album)/\d+(?:/track/\d+)?"),
-    _p("qobuz", "Qobuz", "", 9,
+    _p("bandcamp", "Bandcamp", "", 9,
+       r"https?://[\w-]+\.bandcamp\.com/(?:track|album)/[\w-]+"),
+    _p("qobuz", "Qobuz", "", 10,
        r"https?://(?:www\.)?qobuz\.com/[a-z]{2}(?:-[a-z]{2})?/(?:album|track)/[^/\s,]+/[A-Za-z0-9]+"),
 ]}
 

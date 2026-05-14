@@ -14,6 +14,7 @@ from yoink_music.types import ResolverError, TrackInfo
 from yoink_music.utils import normalize_url
 
 from yoink_music.parsers import apple_music as apple_music_parser
+from yoink_music.parsers import bandcamp as bandcamp_parser
 from yoink_music.parsers import deezer as deezer_parser
 from yoink_music.parsers import soundcloud as soundcloud_parser
 from yoink_music.parsers import spotify as spotify_parser
@@ -24,6 +25,7 @@ from yoink_music.parsers import ytmusic as ytmusic_parser
 from yoink_music.parsers import youtube as youtube_parser
 
 from yoink_music.adapters import apple_music as apple_music_adapter
+from yoink_music.adapters import bandcamp as bandcamp_adapter
 from yoink_music.adapters import deezer as deezer_adapter
 from yoink_music.adapters import soundcloud as soundcloud_adapter
 from yoink_music.adapters import spotify as spotify_adapter
@@ -61,6 +63,7 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
     tidal_csec = cfg.tidal_client_secret or ""
     tidal_proxy = cfg.proxy_for("tidal")
     qobuz_proxy = cfg.proxy_for("qobuz")
+    bandcamp_proxy = cfg.proxy_for("bandcamp")
 
     return [
         _PlatformDef(
@@ -122,6 +125,15 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
             adapter=lambda query, client, **kw: apple_music_adapter.search(
                 query, _client_with_proxy(client, apple_music_proxy), **kw
             ),
+        ),
+        _PlatformDef(
+            key="bandcamp",
+            name="Bandcamp",
+            url_re=bandcamp_parser.TRACK_RE,
+            parser=lambda url, client: bandcamp_parser.parse(
+                url, _client_with_proxy(client, bandcamp_proxy),
+            ),
+            adapter=bandcamp_adapter.search,
         ),
         _PlatformDef(
             key="qobuz",

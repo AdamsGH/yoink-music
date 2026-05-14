@@ -10,7 +10,7 @@ from yoink_music.utils import track_score
 
 logger = logging.getLogger(__name__)
 
-_MIN_SCORE = 0.5
+_MIN_SCORE = 0.6
 _SONG_LINK_RE = re.compile(r'href="(https://music\.apple\.com/[^"]+/album/[^"]+\?i=\d+)"')
 
 

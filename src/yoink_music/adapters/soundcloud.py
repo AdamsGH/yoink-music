@@ -10,7 +10,7 @@ from yoink_music.utils import track_score
 
 logger = logging.getLogger(__name__)
 
-_MIN_SCORE = 0.5
+_MIN_SCORE = 0.6
 _TRACK_RE = re.compile(r'"permalink_url"\s*:\s*"(https://soundcloud\.com/[^"]+)"')
 
 

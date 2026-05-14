@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 _DDG_URL = "https://html.duckduckgo.com/html/"
 _TRACK_URL_RE = re.compile(r"https://open\.spotify\.com/track/[A-Za-z0-9]+")
-_MIN_SCORE = 0.5
+_MIN_SCORE = 0.6
 
 
 async def search(

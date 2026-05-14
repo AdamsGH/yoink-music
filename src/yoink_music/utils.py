@@ -6,8 +6,22 @@ import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 
+_CYR_RE = re.compile(r"[а-яёА-ЯЁ]")
+
+
+def _to_latin(s: str) -> str:
+    """Transliterate Cyrillic characters to Latin; leave Latin unchanged."""
+    try:
+        from transliterate import translit
+        return translit(s, "ru", reversed=True)
+    except Exception:
+        return s
+
+
 def _norm(s: str) -> str:
     import unicodedata
+    if _CYR_RE.search(s):
+        s = _to_latin(s)
     # Decompose unicode (Ø -> O + combining stroke) then drop combining marks
     s = unicodedata.normalize("NFKD", s)
     s = "".join(c for c in s if not unicodedata.combining(c))

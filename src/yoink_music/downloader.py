@@ -72,8 +72,9 @@ async def send_track(
 
     # Check file_id cache first
     if file_cache is not None:
-        cached = await file_cache.get(cache_key)
-        if cached:
+        cached_list = await file_cache.get(cache_key)
+        if cached_list:
+            cached = cached_list[0]
             logger.info("Music cache hit for %r by %r", info.title, info.artist)
             msg = await bot.send_audio(
                 chat_id=chat_id,

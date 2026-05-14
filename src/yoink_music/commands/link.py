@@ -62,6 +62,10 @@ async def _handle_music_link(
     if not msg:
         return
 
+    # Ignore messages sent via this bot's inline mode - _handle_inline_card handles those.
+    if msg.via_bot and msg.via_bot.id == context.bot.id:
+        return
+
     text = msg.text or msg.caption or ""
     found = extract_music_urls(text)
     if not found:

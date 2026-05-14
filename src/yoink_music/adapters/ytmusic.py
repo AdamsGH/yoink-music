@@ -12,7 +12,20 @@ from yoink_music.utils import track_score
 logger = logging.getLogger(__name__)
 
 _MIN_SCORE = 0.6
+_CYR_RE = __import__('re').compile(r'[\u0430-\u044f\u0451\u0410-\u042f\u0401]')
 _executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ytmusic")
+
+
+def _to_cyrillic(s: str) -> str | None:
+    """Transliterate Latin -> Cyrillic. Returns None if already has Cyrillic or fails."""
+    if _CYR_RE.search(s):
+        return None
+    try:
+        from transliterate import translit
+        result = translit(s, 'ru')
+        return result if result != s else None
+    except Exception:
+        return None
 
 
 async def search(
@@ -21,7 +34,32 @@ async def search(
     title: str = "",
     artist: str = "",
 ) -> str | None:
-    result = await _search_ytmusicapi(query, title=title, artist=artist)
+    # Build a Cyrillic variant of the query: ytmusicapi works better with
+    # full-Cyrillic queries when the source platform (Spotify) provides
+    # Latin artist names (e.g. 'Monetochka' vs 'Монеточка').
+    cyr_artist = _to_cyrillic(artist)
+    if cyr_artist and title:
+        cyr_query = f"{cyr_artist} {title}"
+    else:
+        cyr_query = None
+
+    # Run original and Cyrillic queries in parallel; take first hit.
+    queries = [query]
+    if cyr_query and cyr_query != query:
+        queries.append(cyr_query)
+
+    tasks = [
+        asyncio.create_task(_search_ytmusicapi(q, title=title, artist=artist))
+        for q in queries
+    ]
+    result = None
+    for task in asyncio.as_completed(tasks):
+        r = await task
+        if r and not result:
+            result = r
+    for task in tasks:
+        task.cancel()
+
     if result:
         return result
     logger.info("YTMusic API found nothing for %r, falling back to ytsearch", query)

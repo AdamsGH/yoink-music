@@ -7,7 +7,7 @@ import time
 
 import httpx
 
-from yoink_music.utils import track_score
+from yoink_music.utils import score
 
 logger = logging.getLogger(__name__)
 
@@ -72,16 +72,23 @@ async def search(
         if not refs or not included:
             return None
 
+        # included[] and data[] are positionally paired (same as idonthavespotify)
+        # Artist is not returned in attributes - match full query against title
+        full_query = f"{artist} {title}".strip() if artist else title
+
         best_url: str | None = None
         best_score = 0.0
-        for ref, item in zip(refs[:5], included[:5]):
+        for item, ref in zip(included[:5], refs[:5]):
             attrs = item.get("attributes", {})
             c_title = (attrs.get("title") or "").strip()
-            c_artist = (attrs.get("artistName") or attrs.get("artist") or "").strip()
             track_id = ref.get("id", "")
-            url = f"https://listen.tidal.com/track/{track_id}"
-            s = track_score(c_artist, c_title, artist, title)
-            logger.debug("Tidal score=%.2f artist=%r title=%r", s, c_artist, c_title)
+            ext_links = attrs.get("externalLinks", [])
+            url = next(
+                (l["href"] for l in ext_links if l.get("meta", {}).get("type") == "TIDAL_SHARING"),
+                f"https://tidal.com/browse/track/{track_id}",
+            )
+            s = score(c_title, full_query)
+            logger.debug("Tidal score=%.2f title=%r", s, c_title)
             if s > best_score:
                 best_score, best_url = s, url
 

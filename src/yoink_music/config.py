@@ -21,6 +21,10 @@ class MusicConfig(BaseSettings):
     # Example: MUSIC_PROXY_PLATFORMS=spotify,soundcloud
     proxy_platforms: str = ""
 
+    # Tidal: Client Credentials for official search API.
+    tidal_client_id: str | None = None
+    tidal_client_secret: str | None = None
+
     # Download feature: send MP3 after the link card. Requires yoink-dl installed.
     # Source priority: YouTube Music → YouTube search fallback.
     download_enabled: bool = False

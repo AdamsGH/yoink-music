@@ -17,6 +17,7 @@ from yoink_music.parsers import apple_music as apple_music_parser
 from yoink_music.parsers import deezer as deezer_parser
 from yoink_music.parsers import soundcloud as soundcloud_parser
 from yoink_music.parsers import spotify as spotify_parser
+from yoink_music.parsers import tidal as tidal_parser
 from yoink_music.parsers import yandex as yandex_parser
 from yoink_music.parsers import ytmusic as ytmusic_parser
 from yoink_music.parsers import youtube as youtube_parser
@@ -25,6 +26,7 @@ from yoink_music.adapters import apple_music as apple_music_adapter
 from yoink_music.adapters import deezer as deezer_adapter
 from yoink_music.adapters import soundcloud as soundcloud_adapter
 from yoink_music.adapters import spotify as spotify_adapter
+from yoink_music.adapters import tidal as tidal_adapter
 from yoink_music.adapters import yandex as yandex_adapter
 from yoink_music.adapters import ytmusic as ytmusic_adapter
 
@@ -53,6 +55,9 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
     spotify_proxy = cfg.proxy_for("spotify")
     soundcloud_proxy = cfg.proxy_for("soundcloud")
     apple_music_proxy = cfg.proxy_for("apple_music")
+    tidal_cid = cfg.tidal_client_id or ""
+    tidal_csec = cfg.tidal_client_secret or ""
+    tidal_proxy = cfg.proxy_for("tidal")
 
     return [
         _PlatformDef(
@@ -113,6 +118,18 @@ def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
             ),
             adapter=lambda query, client, **kw: apple_music_adapter.search(
                 query, _client_with_proxy(client, apple_music_proxy), **kw
+            ),
+        ),
+        _PlatformDef(
+            key="tidal",
+            name="Tidal",
+            url_re=tidal_parser.TRACK_RE,
+            parser=lambda url, client: tidal_parser.parse(
+                url, _client_with_proxy(client, tidal_proxy),
+            ),
+            adapter=lambda query, client, **kw: tidal_adapter.search(
+                query, _client_with_proxy(client, tidal_proxy),
+                client_id=tidal_cid, client_secret=tidal_csec, **kw
             ),
         ),
         # Regular YouTube - must come after ytmusic so music.youtube.com is

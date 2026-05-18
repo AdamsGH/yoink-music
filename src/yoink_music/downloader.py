@@ -15,6 +15,7 @@ Flow:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import shutil
 from typing import TYPE_CHECKING
@@ -129,7 +130,8 @@ async def send_track(
         try:
             logger.info("Downloading music: %r by %r from %s", info.title, info.artist, yt_url)
             result = await download_track(yt_url, proxy=proxy)
-            embed_tags(
+            await asyncio.to_thread(
+                embed_tags,
                 result.path,
                 title=info.title,
                 artist=info.artist or "",

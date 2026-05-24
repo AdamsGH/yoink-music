@@ -4,14 +4,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+import time
 
 from telegram import LinkPreviewOptions, Message, Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from yoink.core.bot.access import AccessPolicy, require_access
 from yoink.core.db.models import UserRole
-from yoink_music.emoji_ids import format_artist_entities, format_track_entities
 from yoink_music.config import MusicConfig
+from yoink_music.emoji_ids import format_artist_entities, format_track_entities
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
@@ -65,6 +66,15 @@ async def _handle_music_link(
     # Ignore messages sent via this bot's inline mode - _handle_inline_card handles those.
     if msg.via_bot and msg.via_bot.id == context.bot.id:
         return
+
+    if msg.date and time.time() - msg.date.timestamp() > 30:
+        logger.debug("music_link: dropping stale message (age=%.0fs)", time.time() - msg.date.timestamp())
+        return
+
+    _uid = update.effective_user.id if update.effective_user else "?"
+    _cid = msg.chat_id
+    _fwd = bool(getattr(msg, "forward_origin", None) or getattr(msg, "forward_from", None))
+    logger.debug("music_link: user=%s chat=%s fwd=%s", _uid, _cid, _fwd)
 
     text = msg.text or msg.caption or ""
     found = extract_music_urls(text)
@@ -186,9 +196,16 @@ async def _handle_inline_card(
     if not downloader.is_available():
         return
 
+    if msg.date and time.time() - msg.date.timestamp() > 30:
+        logger.debug("inline_card: dropping stale message (age=%.0fs)", time.time() - msg.date.timestamp())
+        return
+
     source_url = _source_url_from_entities(msg)
     if not source_url:
         return
+
+    _uid = update.effective_user.id if update.effective_user else "?"
+    logger.debug("inline_card: user=%s chat=%s url=%s", _uid, msg.chat_id, source_url)
 
     if SPOTIFY_ARTIST_RE.search(source_url):
         return

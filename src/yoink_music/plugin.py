@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-
-from fastapi import APIRouter
+from typing import TYPE_CHECKING
 
 from yoink.core.plugin import HandlerSpec, InlineHandlerSpec, PluginContext
+
+if TYPE_CHECKING:
+    from fastapi import APIRouter
 
 
 class MusicPlugin:
@@ -29,9 +31,9 @@ class MusicPlugin:
         return get_handler_specs()
 
     def get_inline_handlers(self) -> list[InlineHandlerSpec]:
-        from yoink_music.commands.inline import handle_inline
         from yoink.core.bot.access import AccessPolicy
         from yoink.core.db.models import UserRole
+        from yoink_music.commands.inline import handle_inline
         return [InlineHandlerSpec(
             callback=handle_inline,
             priority=10,
@@ -81,8 +83,8 @@ class MusicPlugin:
         return ""
 
     async def setup(self, ctx: PluginContext) -> None:
-        from yoink_music.resolver import MusicResolver
         from yoink_music import downloader as _dl_mod
+        from yoink_music.resolver import MusicResolver
 
         resolver = MusicResolver(cfg=self._config)
         resolver._session_factory = ctx.session_factory

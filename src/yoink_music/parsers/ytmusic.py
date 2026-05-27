@@ -1,12 +1,14 @@
 """YouTube Music parser - uses ytmusicapi, no API key needed."""
 from __future__ import annotations
 
-import re
 import logging
-
-import httpx
+import re
+from typing import TYPE_CHECKING
 
 from yoink_music.types import ResolverError
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +26,8 @@ async def parse(url: str, client: httpx.AsyncClient) -> tuple[str, str, str | No
         from ytmusicapi import YTMusic
         ytm = YTMusic()
         info = ytm.get_song(video_id)
-    except ImportError:
-        raise ResolverError("ytmusicapi not installed")
+    except ImportError as exc:
+        raise ResolverError("ytmusicapi not installed") from exc
     except Exception as exc:
         raise ResolverError(f"YTMusic parse failed: {exc}") from exc
 

@@ -10,29 +10,27 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from yoink_music.types import ResolverError, TrackInfo
-from yoink_music.utils import normalize_url
-
-from yoink_music.parsers import apple_music as apple_music_parser
-from yoink_music.parsers import bandcamp as bandcamp_parser
-from yoink_music.parsers import deezer as deezer_parser
-from yoink_music.parsers import soundcloud as soundcloud_parser
-from yoink_music.parsers import spotify as spotify_parser
-from yoink_music.parsers import qobuz as qobuz_parser
-from yoink_music.parsers import tidal as tidal_parser
-from yoink_music.parsers import yandex as yandex_parser
-from yoink_music.parsers import ytmusic as ytmusic_parser
-from yoink_music.parsers import youtube as youtube_parser
-
 from yoink_music.adapters import apple_music as apple_music_adapter
 from yoink_music.adapters import bandcamp as bandcamp_adapter
 from yoink_music.adapters import deezer as deezer_adapter
+from yoink_music.adapters import qobuz as qobuz_adapter
 from yoink_music.adapters import soundcloud as soundcloud_adapter
 from yoink_music.adapters import spotify as spotify_adapter
-from yoink_music.adapters import qobuz as qobuz_adapter
 from yoink_music.adapters import tidal as tidal_adapter
 from yoink_music.adapters import yandex as yandex_adapter
 from yoink_music.adapters import ytmusic as ytmusic_adapter
+from yoink_music.parsers import apple_music as apple_music_parser
+from yoink_music.parsers import bandcamp as bandcamp_parser
+from yoink_music.parsers import deezer as deezer_parser
+from yoink_music.parsers import qobuz as qobuz_parser
+from yoink_music.parsers import soundcloud as soundcloud_parser
+from yoink_music.parsers import spotify as spotify_parser
+from yoink_music.parsers import tidal as tidal_parser
+from yoink_music.parsers import yandex as yandex_parser
+from yoink_music.parsers import youtube as youtube_parser
+from yoink_music.parsers import ytmusic as ytmusic_parser
+from yoink_music.types import ResolverError, TrackInfo
+from yoink_music.utils import normalize_url
 
 if TYPE_CHECKING:
     from yoink_music.config import MusicConfig
@@ -55,7 +53,7 @@ class _PlatformDef:
     adapter: object  # async (query, client) -> url | None
 
 
-def _build_platforms(cfg: "MusicConfig") -> list[_PlatformDef]:
+def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
     spotify_proxy = cfg.proxy_for("spotify")
     soundcloud_proxy = cfg.proxy_for("soundcloud")
     apple_music_proxy = cfg.proxy_for("apple_music")
@@ -188,7 +186,7 @@ def _client_with_proxy(base: httpx.AsyncClient, proxy: str | None) -> httpx.Asyn
 
 
 class MusicResolver:
-    def __init__(self, cfg: "MusicConfig") -> None:
+    def __init__(self, cfg: MusicConfig) -> None:
         self._cfg = cfg
         self._platforms: list[_PlatformDef] = []
         self._cache: dict[str, tuple[TrackInfo, float]] = {}

@@ -11,10 +11,10 @@ all Spotify requests are routed through it.
 """
 from __future__ import annotations
 
+import logging
 import re
 import time
-import logging
-from urllib.parse import urlparse
+from contextlib import asynccontextmanager
 
 import httpx
 
@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 TRACK_RE = re.compile(r"open\.spotify\.com/(?:intl-[a-z]{2}/)?track/([A-Za-z0-9]+)")
 _TOKEN_CACHE: dict[str, object] = {}
 
-
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def _nullctx(client: httpx.AsyncClient):

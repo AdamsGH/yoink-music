@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 import logging
 from concurrent.futures import ThreadPoolExecutor
-
-import httpx
+from typing import TYPE_CHECKING
 
 from yoink_music.utils import track_score
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +40,7 @@ async def search(
     # full-Cyrillic queries when the source platform (Spotify) provides
     # Latin artist names (e.g. 'Monetochka' vs 'Монеточка').
     cyr_artist = _to_cyrillic(artist)
-    if cyr_artist and title:
-        cyr_query = f"{cyr_artist} {title}"
-    else:
-        cyr_query = None
+    cyr_query = f"{cyr_artist} {title}" if cyr_artist and title else None
 
     # Run original and Cyrillic queries in parallel; take first hit.
     queries = [query]

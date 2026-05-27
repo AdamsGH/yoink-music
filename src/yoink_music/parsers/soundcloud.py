@@ -14,8 +14,8 @@ which returns title (no artist) without authentication.
 from __future__ import annotations
 
 import asyncio
-import re
 import logging
+import re
 from dataclasses import dataclass
 
 from curl_cffi.requests import AsyncSession

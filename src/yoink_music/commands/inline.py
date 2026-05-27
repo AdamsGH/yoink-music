@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from typing import TYPE_CHECKING
 
 from telegram import (
     InlineQuery,
@@ -11,14 +12,17 @@ from telegram import (
     InputTextMessageContent,
     LinkPreviewOptions,
 )
-from telegram.ext import ContextTypes
 
 from yoink_music.emoji_ids import _PLATFORM_NAMES, format_artist_entities, format_track_entities
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.parsers.youtube import TRACK_RE as YOUTUBE_RE
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
-from yoink_music.types import ArtistInfo, TrackInfo
+
+if TYPE_CHECKING:
+    from telegram.ext import ContextTypes
+
+    from yoink_music.types import ArtistInfo, TrackInfo
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +72,7 @@ async def _handle_music_url(
         return False
 
     results = []
-    for url, platform in found:
+    for url, _platform in found:
         if SPOTIFY_ARTIST_RE.search(url):
             try:
                 artist_info = await resolve_spotify_artist(

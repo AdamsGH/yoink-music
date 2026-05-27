@@ -5,12 +5,14 @@ og:type: music.song / music.album / etc.
 """
 from __future__ import annotations
 
-import re
 import logging
-
-import httpx
+import re
+from typing import TYPE_CHECKING
 
 from yoink_music.types import ResolverError
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 

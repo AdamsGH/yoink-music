@@ -23,3 +23,25 @@ music = "yoink_music.plugin:MusicPlugin"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/yoink_music"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src"]
+
+[tool.pyrefly]
+project-includes = ["**/*.py*", "**/*.ipynb"]
+# Plugins live in a monorepo: the real interpreter + deps are at the repo root,
+# and cross-plugin/core imports resolve via explicit search paths.
+python-interpreter-path = "../../.venv/bin/python"
+search-path = [
+    "src",
+    "../../src",
+    "../yoink-insight/src",
+    "../yoink-dl/src",
+    "../yoink-stats/src",
+]
+# Optional third-party deps that the bot imports lazily under try/except
+# ImportError. They are not in the core monorepo .venv, only in the
+# yoink-music wheel that runs inside the docker image.
+ignore-missing-imports = ["yandex_music", "ytmusicapi", "curl_cffi"]

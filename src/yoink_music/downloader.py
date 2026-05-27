@@ -16,16 +16,16 @@ Flow:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import shutil
 from typing import TYPE_CHECKING
 
-from telegram import Bot
-from telegram.constants import ParseMode
-
 if TYPE_CHECKING:
-    from yoink_music.types import TrackInfo
+    from telegram import Bot
+
     from yoink_music.config import MusicConfig
+    from yoink_music.types import TrackInfo
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +42,8 @@ def is_available() -> bool:
 async def send_track(
     bot: Bot,
     chat_id: int,
-    info: "TrackInfo",
-    cfg: "MusicConfig",
+    info: TrackInfo,
+    cfg: MusicConfig,
     *,
     reply_to_message_id: int | None = None,
     file_cache=None,
@@ -59,11 +59,11 @@ async def send_track(
     """
     try:
         from yoink_dl.download.music import (
+            MusicDownloadError,
+            TrackTooLargeError,
             download_track,
             embed_tags,
             make_music_cache_key,
-            MusicDownloadError,
-            TrackTooLargeError,
         )
     except ImportError:
         logger.debug("yoink-dl not available, skipping music download")
@@ -98,7 +98,6 @@ async def send_track(
     proxy = cfg.proxy_for("ytmusic") or cfg.proxy_for("spotify")
 
     direct = _find_youtube_url(info)
-    searched: str | None = None
 
     # Build candidate list lazily - try direct first, search on failure
     direct_tried = set()
@@ -191,10 +190,8 @@ async def send_track(
             logger.warning("Unexpected error for %r from %s: %s — trying next", info.title, yt_url, exc)
         finally:
             if result is not None:
-                try:
+                with contextlib.suppress(Exception):
                     shutil.rmtree(result.path.parent, ignore_errors=True)
-                except Exception:
-                    pass
 
     logger.info("All sources exhausted for %r by %r", info.title, info.artist)
     if dl_log and user_id:
@@ -208,7 +205,7 @@ async def send_track(
     return False
 
 
-def _find_source_url(info: "TrackInfo") -> str | None:
+def _find_source_url(info: TrackInfo) -> str | None:
     """Return the best canonical URL for logging - prefer Spotify/YTMusic over YouTube."""
     for key in ("spotify", "ytmusic", "apple_music", "deezer"):
         for k, _name, url in info.links:
@@ -219,7 +216,7 @@ def _find_source_url(info: "TrackInfo") -> str | None:
     return None
 
 
-def _find_youtube_url(info: "TrackInfo") -> str | None:
+def _find_youtube_url(info: TrackInfo) -> str | None:
     """Return the first YouTube Music or YouTube URL from resolved links."""
     for key, _name, url in info.links:
         if key == "ytmusic":
@@ -230,12 +227,13 @@ def _find_youtube_url(info: "TrackInfo") -> str | None:
     return None
 
 
-async def _search_ytmusic(info: "TrackInfo") -> str | None:
+async def _search_ytmusic(info: TrackInfo) -> str | None:
     """Search YouTube Music via ytmusicapi."""
     query = f"{info.artist} {info.title}".strip() if info.artist else info.title
     try:
-        from ytmusicapi import YTMusic
         import asyncio
+
+        from ytmusicapi import YTMusic
         loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(
             None,
@@ -250,11 +248,12 @@ async def _search_ytmusic(info: "TrackInfo") -> str | None:
     return None
 
 
-async def _search_ytsearch(info: "TrackInfo") -> str | None:
+async def _search_ytsearch(info: TrackInfo) -> str | None:
     """Search regular YouTube via yt-dlp ytsearch."""
     query = f"{info.artist} {info.title}".strip() if info.artist else info.title
     try:
         import asyncio
+
         import yt_dlp
         loop = asyncio.get_running_loop()
 
@@ -270,7 +269,7 @@ async def _search_ytsearch(info: "TrackInfo") -> str | None:
     return None
 
 
-async def _search_all(info: "TrackInfo") -> list[str]:
+async def _search_all(info: TrackInfo) -> list[str]:
     """Return all search candidates: ytmusicapi result + ytsearch result."""
     results: list[str] = []
     ytm = await _search_ytmusic(info)
@@ -286,6 +285,7 @@ async def _fetch_thumbnail(url: str):
     """Fetch thumbnail as InputFile for send_audio thumbnail param."""
     try:
         import io
+
         import httpx
         from telegram import InputFile
         resp = await httpx.AsyncClient().get(url, timeout=5, follow_redirects=True)

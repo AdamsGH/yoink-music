@@ -4,10 +4,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-
-import httpx
+from typing import TYPE_CHECKING
 
 from yoink_music.utils import score
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -78,13 +80,13 @@ async def search(
 
         best_url: str | None = None
         best_score = 0.0
-        for item, ref in zip(included[:5], refs[:5]):
+        for item, ref in zip(included[:5], refs[:5], strict=False):
             attrs = item.get("attributes", {})
             c_title = (attrs.get("title") or "").strip()
             track_id = ref.get("id", "")
             ext_links = attrs.get("externalLinks", [])
             url = next(
-                (l["href"] for l in ext_links if l.get("meta", {}).get("type") == "TIDAL_SHARING"),
+                (link["href"] for link in ext_links if link.get("meta", {}).get("type") == "TIDAL_SHARING"),
                 f"https://tidal.com/browse/track/{track_id}",
             )
             s = score(c_title, full_query)

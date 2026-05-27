@@ -1,12 +1,15 @@
 """Music plugin ORM models."""
 from __future__ import annotations
 
-from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from yoink.core.db.base import Base, _now
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 class MusicResolveLog(Base):

@@ -1,12 +1,14 @@
 """Yandex Music parser - uses unofficial yandex-music-api."""
 from __future__ import annotations
 
-import re
 import logging
-
-import httpx
+import re
+from typing import TYPE_CHECKING
 
 from yoink_music.types import ResolverError
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +27,8 @@ async def parse(url: str, client: httpx.AsyncClient) -> tuple[str, str, str | No
         yc = ClientAsync()
         await yc.init()
         tracks = await yc.tracks([f"{track_id}:{album_id}"])
-    except ImportError:
-        raise ResolverError("yandex-music not installed")
+    except ImportError as exc:
+        raise ResolverError("yandex-music not installed") from exc
     except Exception as exc:
         raise ResolverError(f"Yandex Music API failed: {exc}") from exc
 

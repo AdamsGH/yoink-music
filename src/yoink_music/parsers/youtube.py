@@ -12,10 +12,12 @@ import asyncio
 import logging
 import re
 from concurrent.futures import ThreadPoolExecutor
-
-import httpx
+from typing import TYPE_CHECKING
 
 from yoink_music.types import ResolverError
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 

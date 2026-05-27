@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import logging
-
-import httpx
+from typing import TYPE_CHECKING
 
 from yoink_music.parsers.soundcloud import _fetch_client_id, _make_session
 from yoink_music.utils import track_score
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 

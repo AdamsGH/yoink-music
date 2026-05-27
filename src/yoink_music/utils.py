@@ -5,7 +5,6 @@ import difflib
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
-
 _CYR_RE = re.compile(r"[а-яёА-ЯЁ]")
 
 

@@ -4,11 +4,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-
-import httpx
+from contextlib import asynccontextmanager
+from typing import TYPE_CHECKING
 
 from yoink_music.parsers.spotify import _get_access_token, _make_client
 from yoink_music.types import ArtistInfo, ArtistTrack, ResolverError
+
+if TYPE_CHECKING:
+    import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -226,8 +229,6 @@ async def _search_ytmusic_artist(name: str, client: httpx.AsyncClient) -> str | 
     except ImportError:
         return None
 
-
-from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def _nullctx(client: httpx.AsyncClient):

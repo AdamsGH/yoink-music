@@ -5,18 +5,20 @@ import asyncio
 import logging
 import re
 import time
+from typing import TYPE_CHECKING
 
-from telegram import LinkPreviewOptions, Message, Update
+from telegram import LinkPreviewOptions, Message, MessageEntity, Update
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from yoink.core.bot.access import AccessPolicy, require_access
 from yoink.core.db.models import UserRole
-from yoink_music.config import MusicConfig
 from yoink_music.emoji_ids import format_artist_entities, format_track_entities
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
-from yoink_music.types import ArtistInfo, TrackInfo
+
+if TYPE_CHECKING:
+    from yoink_music.config import MusicConfig
 
 _MUSIC_POLICY = AccessPolicy(
     min_role=UserRole.user,
@@ -35,9 +37,12 @@ _PLAYLIST_RE = re.compile(
 def _source_url_from_entities(msg: Message) -> str | None:
     """Extract the first music platform URL from TEXT_LINK entities."""
     for entity in msg.entities or []:
-        if entity.type.name == "TEXT_LINK" and entity.url:
-            if MUSIC_URL_RE.search(entity.url):
-                return entity.url
+        if (
+            entity.type == MessageEntity.TEXT_LINK
+            and entity.url
+            and MUSIC_URL_RE.search(entity.url)
+        ):
+            return entity.url
     return None
 
 
@@ -46,7 +51,7 @@ def _music_urls_from_entities(msg: Message) -> list[str]:
     urls: list[str] = []
     seen: set[str] = set()
     for entity in msg.entities or []:
-        if entity.type.name == "TEXT_LINK" and entity.url:
+        if entity.type == MessageEntity.TEXT_LINK and entity.url:
             url = entity.url
             if url not in seen and MUSIC_URL_RE.search(url):
                 seen.add(url)
@@ -149,6 +154,9 @@ async def _handle_artist_url(
     resolver: MusicResolver,
     cfg: MusicConfig | None,
 ) -> None:
+    if resolver._client is None:
+        logger.warning("Artist resolve skipped for %s: resolver http client not started", url)
+        return
     try:
         info = await resolve_spotify_artist(
             url,

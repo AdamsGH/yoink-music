@@ -44,4 +44,12 @@ search-path = [
 # Optional third-party deps that the bot imports lazily under try/except
 # ImportError. They are not in the core monorepo .venv, only in the
 # yoink-music wheel that runs inside the docker image.
-ignore-missing-imports = ["yandex_music", "ytmusicapi", "curl_cffi"]
+ignore-missing-imports = [
+    "yandex_music",
+    "ytmusicapi",
+    "curl_cffi",
+    "yt_dlp",
+    "transliterate",
+    "pytest",
+    "pytest_asyncio",
+]

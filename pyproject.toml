@@ -48,6 +48,7 @@ ignore-missing-imports = [
     "yandex_music",
     "ytmusicapi",
     "curl_cffi",
+    "curl_cffi.requests",
     "yt_dlp",
     "transliterate",
     "pytest",

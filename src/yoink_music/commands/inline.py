@@ -74,6 +74,9 @@ async def _handle_music_url(
     results = []
     for url, _platform in found:
         if SPOTIFY_ARTIST_RE.search(url):
+            if resolver._client is None:
+                logger.warning("Artist resolve skipped for %s: resolver http client not started", url)
+                continue
             try:
                 artist_info = await resolve_spotify_artist(
                     url,

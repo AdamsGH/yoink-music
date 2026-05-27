@@ -1,15 +1,16 @@
 """Music plugin ORM models."""
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+# `datetime` must be imported at runtime: SQLAlchemy 2.0 evaluates Mapped[...]
+# annotations via eval() at class construction time, so a TYPE_CHECKING-only
+# import would crash with NameError (caught us once after a ruff --unsafe-fixes
+# auto-move; the SQLA error is loud but the cause is non-obvious).
+from datetime import datetime  # noqa: TC003
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from yoink.core.db.base import Base, _now
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class MusicResolveLog(Base):

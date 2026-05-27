@@ -7,7 +7,10 @@ from dataclasses import dataclass, field
 @dataclass
 class TrackInfo:
     title: str
-    artist: str
+    # None when parser ran in oEmbed mode (Spotify fallback) and Deezer
+    # search didn't recover an artist - downstream code already handles
+    # the missing-artist case for formatting.
+    artist: str | None
     thumbnail_url: str | None
     source_url: str
     # list of (platform_key, display_name, url)

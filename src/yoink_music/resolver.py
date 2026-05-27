@@ -5,6 +5,7 @@ import asyncio
 import logging
 import re
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -48,9 +49,12 @@ _DEFAULT_UA = (
 class _PlatformDef:
     key: str
     name: str
-    url_re: object
-    parser: object   # async (url, client) -> (title, artist, thumbnail)
-    adapter: object  # async (query, client) -> url | None
+    url_re: re.Pattern[str]
+    # async (url, client) -> (title, artist, thumbnail)
+    parser: Callable[..., Awaitable[tuple[str, str | None, str | None]]]
+    # async (query, client, *, title=, artist=) -> url | None.
+    # None when this platform has no cross-platform search adapter (youtube).
+    adapter: Callable[..., Awaitable[str | None]] | None
 
 
 def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
@@ -241,12 +245,16 @@ class MusicResolver:
 
         logger.info("Resolved %s: query=%r artist=%r", source.key, query, artist)
 
-        other = [p for p in self._platforms if p.key != source.key and p.adapter is not None]
+        other: list[tuple[_PlatformDef, Callable[..., Awaitable[str | None]]]] = []
+        for p in self._platforms:
+            if p.key == source.key or p.adapter is None:
+                continue
+            other.append((p, p.adapter))
         tasks = {
-            p.key: asyncio.create_task(
-                p.adapter(query, self._client, title=title, artist=artist)
+            p.key: asyncio.ensure_future(
+                adapter(query, self._client, title=title, artist=artist),
             )
-            for p in other
+            for p, adapter in other
         }
         results: dict[str, str | None] = {}
         for key, task in tasks.items():

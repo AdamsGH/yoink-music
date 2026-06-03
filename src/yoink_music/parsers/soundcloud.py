@@ -18,6 +18,7 @@ import logging
 import re
 from dataclasses import dataclass
 
+import httpx
 from curl_cffi.requests import AsyncSession
 
 from yoink_music.types import ResolverError
@@ -43,10 +44,22 @@ _lock = asyncio.Lock()
 
 
 def _make_session(proxy: str | None) -> AsyncSession:
+    """curl_cffi session for soundcloud.com homepage / JS bundles.
+
+    Browser-TLS fingerprinting is enforced by Cloudflare on the public site
+    (homepage HTML, a-v2.sndcdn.com bundles). API hosts (api-v2.soundcloud.com,
+    soundcloud.com/oembed) reject BoringSSL handshakes when tunneled through
+    SOCKS5, so those go through httpx instead via _make_api_client().
+    """
     s = AsyncSession(impersonate="chrome")
     if proxy:
         s.proxies = {"https": proxy, "http": proxy}
     return s
+
+
+def _make_api_client(proxy: str | None) -> httpx.AsyncClient:
+    """httpx client for api-v2.soundcloud.com (system OpenSSL, no impersonate)."""
+    return httpx.AsyncClient(proxy=proxy, follow_redirects=True, timeout=15)
 
 
 async def _fetch_client_id(proxy: str | None) -> str | None:
@@ -98,11 +111,10 @@ async def _fetch_client_id(proxy: str | None) -> str | None:
 
 
 async def _resolve_via_api(url: str, client_id: str, proxy: str | None) -> tuple[str, str, str | None]:
-    async with _make_session(proxy) as session:
+    async with _make_api_client(proxy) as session:
         resp = await session.get(
             "https://api-v2.soundcloud.com/resolve",
             params={"url": url, "client_id": client_id},
-            allow_redirects=True,
             timeout=15,
         )
         if resp.status_code == 401:
@@ -127,11 +139,10 @@ async def _resolve_via_api(url: str, client_id: str, proxy: str | None) -> tuple
 
 async def _oembed_fallback(url: str, proxy: str | None) -> tuple[str, str, str | None]:
     """Last resort: oEmbed gives title only, no artist."""
-    async with _make_session(proxy) as session:
+    async with _make_api_client(proxy) as session:
         resp = await session.get(
             "https://soundcloud.com/oembed",
             params={"url": url, "format": "json"},
-            allow_redirects=True,
             timeout=10,
         )
         resp.raise_for_status()

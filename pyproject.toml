@@ -11,7 +11,7 @@ dependencies = [
     "yoink-core",
     "httpx[socks]>=0.27",
     "curl-cffi>=0.7",
-    "python-telegram-bot>=21",
+    "python-telegram-bot>=22.8",
     "ytmusicapi>=1.7",
     "yandex-music>=2.0",
     "aiohttp",

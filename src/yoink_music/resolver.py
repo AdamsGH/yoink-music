@@ -5,7 +5,6 @@ import asyncio
 import logging
 import re
 import time
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -34,6 +33,8 @@ from yoink_music.types import ResolverError, TrackInfo
 from yoink_music.utils import normalize_url
 
 if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
     from yoink_music.config import MusicConfig
 
 logger = logging.getLogger(__name__)

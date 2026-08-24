@@ -10,15 +10,11 @@ soundcloud.com homepage IS fingerprint-gated.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 import httpx
 
 from yoink_music.parsers.soundcloud import _fetch_client_id
 from yoink_music.utils import track_score
-
-if TYPE_CHECKING:
-    pass
 
 logger = logging.getLogger(__name__)
 

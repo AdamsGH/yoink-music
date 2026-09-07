@@ -55,7 +55,8 @@ def extract_music_urls(text: str) -> list[tuple[str, Platform]]:
     results: list[tuple[str, Platform]] = []
     for platform in sorted(PLATFORMS.values(), key=lambda p: p.order):
         for m in platform.url_re.finditer(text):
-            results.append((m.group(0), platform))
+            url = m.group(0).rstrip("\"'«»()[]<>.,!?:")
+            results.append((url, platform))
     # Deduplicate by URL preserving order
     seen: set[str] = set()
     deduped = []

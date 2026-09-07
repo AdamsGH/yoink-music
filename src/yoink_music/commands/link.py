@@ -37,12 +37,10 @@ _PLAYLIST_RE = re.compile(
 def _source_url_from_entities(msg: Message) -> str | None:
     """Extract the first music platform URL from TEXT_LINK entities."""
     for entity in msg.entities or []:
-        if (
-            entity.type == MessageEntity.TEXT_LINK
-            and entity.url
-            and MUSIC_URL_RE.search(entity.url)
-        ):
-            return entity.url
+        if entity.type == MessageEntity.TEXT_LINK and entity.url:
+            url = entity.url.rstrip("\"'«»()[]<>.,!?:")
+            if MUSIC_URL_RE.search(url):
+                return url
     return None
 
 
@@ -52,7 +50,7 @@ def _music_urls_from_entities(msg: Message) -> list[str]:
     seen: set[str] = set()
     for entity in msg.entities or []:
         if entity.type == MessageEntity.TEXT_LINK and entity.url:
-            url = entity.url
+            url = entity.url.rstrip("\"'«»()[]<>.,!?:")
             if url not in seen and MUSIC_URL_RE.search(url):
                 seen.add(url)
                 urls.append(url)

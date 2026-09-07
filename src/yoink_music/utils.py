@@ -69,6 +69,7 @@ def track_score(
 
 def normalize_url(url: str) -> str:
     """Strip tracking params (si, utm_*, nd, context) for consistent cache keys."""
+    url = url.rstrip("\"'«»()[]<>.,!?:")
     parsed = urlparse(url)
     if not parsed.query:
         return url

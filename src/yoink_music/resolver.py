@@ -89,7 +89,7 @@ def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
         _PlatformDef(
             key="deezer",
             name="Deezer",
-            url_re=deezer_parser.TRACK_RE,
+            url_re=deezer_parser.URL_RE,
             parser=deezer_parser.parse,
             adapter=deezer_adapter.search,
         ),
@@ -217,8 +217,33 @@ class MusicResolver:
                 return p
         return None
 
+    async def _unshorten(self, url: str) -> str:
+        """Follow redirects to resolve short links to their destination."""
+        if not self._client:
+            return url
+        try:
+            resp = await self._client.head(url, follow_redirects=True)
+            if str(resp.url) != url:
+                return str(resp.url)
+            loc = resp.headers.get("location")
+            if loc:
+                return loc
+        except Exception:
+            pass
+        try:
+            resp = await self._client.get(url, follow_redirects=True)
+            if str(resp.url) != url:
+                return str(resp.url)
+            loc = resp.headers.get("location")
+            if loc:
+                return loc
+        except Exception:
+            pass
+        return url
+
     async def resolve(self, url: str, *, user_id: int | None = None) -> TrackInfo:
         norm = normalize_url(url)
+        cache_key = norm
         cached = self._cache.get(norm)
         if cached and time.monotonic() - cached[1] < self._cfg.cache_ttl:
             info = cached[0]
@@ -229,6 +254,12 @@ class MusicResolver:
         assert self._client is not None
 
         source = self._detect(norm)
+        if source is None:
+            effective = await self._unshorten(norm)
+            if effective != norm:
+                norm = normalize_url(effective)
+                source = self._detect(norm)
+
         if source is None:
             raise ResolverError(f"Unsupported platform URL: {norm}")
 
@@ -288,7 +319,9 @@ class MusicResolver:
             source_url=url,
             links=links,
         )
-        self._cache[norm] = (info, time.monotonic())
+        cache_entry = (info, time.monotonic())
+        self._cache[norm] = cache_entry
+        self._cache[cache_key] = cache_entry
         if user_id:
             await self._log_resolve(user_id, info)
         return info

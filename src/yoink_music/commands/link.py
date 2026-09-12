@@ -16,6 +16,7 @@ from yoink_music.emoji_ids import format_artist_entities, format_track_entities
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
+from yoink_music.utils import strip_url_punctuation
 
 if TYPE_CHECKING:
     from yoink_music.config import MusicConfig
@@ -38,7 +39,7 @@ def _source_url_from_entities(msg: Message) -> str | None:
     """Extract the first music platform URL from TEXT_LINK entities."""
     for entity in msg.entities or []:
         if entity.type == MessageEntity.TEXT_LINK and entity.url:
-            url = entity.url.rstrip("\"'«»()[]<>.,!?:")
+            url = strip_url_punctuation(entity.url)
             if MUSIC_URL_RE.search(url):
                 return url
     return None
@@ -50,7 +51,7 @@ def _music_urls_from_entities(msg: Message) -> list[str]:
     seen: set[str] = set()
     for entity in msg.entities or []:
         if entity.type == MessageEntity.TEXT_LINK and entity.url:
-            url = entity.url.rstrip("\"'«»()[]<>.,!?:")
+            url = strip_url_punctuation(entity.url)
             if url not in seen and MUSIC_URL_RE.search(url):
                 seen.add(url)
                 urls.append(url)

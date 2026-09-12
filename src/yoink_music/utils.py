@@ -6,6 +6,12 @@ import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 _CYR_RE = re.compile(r"[а-яёА-ЯЁ]")
+_TRAILING_URL_PUNCTUATION = "\"'«»()[]<>.,!?:;"
+
+
+def strip_url_punctuation(url: str) -> str:
+    """Remove punctuation commonly attached to a URL in prose."""
+    return url.rstrip(_TRAILING_URL_PUNCTUATION)
 
 
 def _to_latin(s: str) -> str:
@@ -69,7 +75,7 @@ def track_score(
 
 def normalize_url(url: str) -> str:
     """Strip tracking params (si, utm_*, nd, context) for consistent cache keys."""
-    url = url.rstrip("\"'«»()[]<>.,!?:")
+    url = strip_url_punctuation(url)
     parsed = urlparse(url)
     if not parsed.query:
         return url

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-TRACK_RE = re.compile(r"deezer\.com/(?:[a-z]{2}/)?track/(\d+)")
+TRACK_RE = re.compile(r"deezer\.com/(?:[a-z]{2}/)?track/(\d+)", re.IGNORECASE)
 URL_RE = re.compile(
     r"(?:[\w-]+\.)*deezer\.com(?:/[a-z]{2})?/(?:album|track)/[^\s.,]+"
     r"|(?:link\.deezer\.com|deezer\.page\.link)/[^\s.,]+",

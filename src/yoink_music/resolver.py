@@ -89,7 +89,7 @@ def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
         _PlatformDef(
             key="deezer",
             name="Deezer",
-            url_re=deezer_parser.TRACK_RE,
+            url_re=deezer_parser.URL_RE,
             parser=deezer_parser.parse,
             adapter=deezer_adapter.search,
         ),

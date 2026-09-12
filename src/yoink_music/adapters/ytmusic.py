@@ -35,6 +35,7 @@ async def search(
     client: httpx.AsyncClient,
     title: str = "",
     artist: str = "",
+    proxy: str | None = None,
 ) -> str | None:
     # Build a Cyrillic variant of the query: ytmusicapi works better with
     # full-Cyrillic queries when the source platform (Spotify) provides
@@ -48,7 +49,9 @@ async def search(
         queries.append(cyr_query)
 
     tasks = [
-        asyncio.create_task(_search_ytmusicapi(q, title=title, artist=artist))
+        asyncio.create_task(
+            _search_ytmusicapi(q, title=title, artist=artist, proxy=proxy)
+        )
         for q in queries
     ]
     result = None
@@ -62,20 +65,23 @@ async def search(
     if result:
         return result
     logger.info("YTMusic API found nothing for %r, falling back to ytsearch", query)
-    return await _search_ytsearch(query, title=title, artist=artist)
+    return await _search_ytsearch(query, title=title, artist=artist, proxy=proxy)
 
 
 async def _search_ytmusicapi(
     query: str,
     title: str = "",
     artist: str = "",
+    proxy: str | None = None,
 ) -> str | None:
     try:
         from ytmusicapi import YTMusic
         loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(
             _executor,
-            lambda: YTMusic().search(query, filter="songs", limit=10),
+            lambda: YTMusic(
+                proxies={"http": proxy, "https": proxy} if proxy else None
+            ).search(query, filter="songs", limit=10),
         )
         if not results:
             return None
@@ -100,6 +106,7 @@ async def _search_ytsearch(
     query: str,
     title: str = "",
     artist: str = "",
+    proxy: str | None = None,
 ) -> str | None:
     """Fallback: yt-dlp ytsearch on regular YouTube, score candidates.
 
@@ -111,7 +118,10 @@ async def _search_ytsearch(
         loop = asyncio.get_running_loop()
 
         def _search():
-            with yt_dlp.YoutubeDL({"quiet": True, "extract_flat": True}) as ydl:
+            opts = {"quiet": True, "extract_flat": True}
+            if proxy:
+                opts["proxy"] = proxy
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 info = ydl.extract_info(f"ytsearch5:{query}", download=False)
             return (info or {}).get("entries", [])
 

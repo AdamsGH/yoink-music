@@ -67,6 +67,7 @@ def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
     tidal_proxy = cfg.proxy_for("tidal")
     qobuz_proxy = cfg.proxy_for("qobuz")
     bandcamp_proxy = cfg.proxy_for("bandcamp")
+    ytmusic_proxy = cfg.proxy_for("ytmusic")
 
     return [
         _PlatformDef(
@@ -104,8 +105,12 @@ def _build_platforms(cfg: MusicConfig) -> list[_PlatformDef]:
             key="ytmusic",
             name="YouTube Music",
             url_re=ytmusic_parser.TRACK_RE,
-            parser=ytmusic_parser.parse,
-            adapter=ytmusic_adapter.search,
+            parser=lambda url, client: ytmusic_parser.parse(
+                url, _client_with_proxy(client, ytmusic_proxy),
+            ),
+            adapter=lambda query, client, **kw: ytmusic_adapter.search(
+                query, client, proxy=ytmusic_proxy, **kw
+            ),
         ),
         _PlatformDef(
             key="soundcloud",

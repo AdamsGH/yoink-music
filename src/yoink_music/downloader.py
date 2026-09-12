@@ -108,7 +108,7 @@ async def send_track(
 
     if not candidates:
         # No direct link at all - search immediately
-        found = await _search_ytsearch(info)
+        found = await _search_ytsearch(info, proxy=proxy)
         if found:
             candidates.append(found)
 
@@ -183,7 +183,7 @@ async def send_track(
             logger.warning("Music download failed for %r from %s: %s — trying next", info.title, yt_url, exc)
             # Append fallback search results on first failure
             if len(candidates) == 1:
-                for url in await _search_all(info):
+                for url in await _search_all(info, proxy=proxy):
                     if url not in direct_tried:
                         candidates.append(url)
         except Exception as exc:
@@ -227,7 +227,7 @@ def _find_youtube_url(info: TrackInfo) -> str | None:
     return None
 
 
-async def _search_ytmusic(info: TrackInfo) -> str | None:
+async def _search_ytmusic(info: TrackInfo, *, proxy: str | None = None) -> str | None:
     """Search YouTube Music via ytmusicapi."""
     query = f"{info.artist} {info.title}".strip() if info.artist else info.title
     try:
@@ -237,7 +237,9 @@ async def _search_ytmusic(info: TrackInfo) -> str | None:
         loop = asyncio.get_running_loop()
         results = await loop.run_in_executor(
             None,
-            lambda: YTMusic().search(query, filter="songs", limit=1),
+            lambda: YTMusic(
+                proxies={"http": proxy, "https": proxy} if proxy else None
+            ).search(query, filter="songs", limit=1),
         )
         if results:
             vid = results[0].get("videoId")
@@ -248,7 +250,7 @@ async def _search_ytmusic(info: TrackInfo) -> str | None:
     return None
 
 
-async def _search_ytsearch(info: TrackInfo) -> str | None:
+async def _search_ytsearch(info: TrackInfo, *, proxy: str | None = None) -> str | None:
     """Search regular YouTube via yt-dlp ytsearch."""
     query = f"{info.artist} {info.title}".strip() if info.artist else info.title
     try:
@@ -258,7 +260,10 @@ async def _search_ytsearch(info: TrackInfo) -> str | None:
         loop = asyncio.get_running_loop()
 
         def _search():
-            with yt_dlp.YoutubeDL({"quiet": True, "extract_flat": True}) as ydl:
+            opts = {"quiet": True, "extract_flat": True}
+            if proxy:
+                opts["proxy"] = proxy
+            with yt_dlp.YoutubeDL(opts) as ydl:
                 info_dict = ydl.extract_info(f"ytsearch1:{query}", download=False)
             entries = (info_dict or {}).get("entries") or []
             return entries[0].get("url") or entries[0].get("webpage_url") if entries else None
@@ -269,13 +274,13 @@ async def _search_ytsearch(info: TrackInfo) -> str | None:
     return None
 
 
-async def _search_all(info: TrackInfo) -> list[str]:
+async def _search_all(info: TrackInfo, *, proxy: str | None = None) -> list[str]:
     """Return all search candidates: ytmusicapi result + ytsearch result."""
     results: list[str] = []
-    ytm = await _search_ytmusic(info)
+    ytm = await _search_ytmusic(info, proxy=proxy)
     if ytm:
         results.append(ytm)
-    yts = await _search_ytsearch(info)
+    yts = await _search_ytsearch(info, proxy=proxy)
     if yts and yts not in results:
         results.append(yts)
     return results

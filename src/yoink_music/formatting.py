@@ -79,18 +79,18 @@ def add_requester_mention(
 
 def _platform_segments(
     links: list[tuple[str, str, str]],
+    separator: str = " | ",
 ) -> list[tuple[str, str | None, str | User | None]]:
     segments: list[tuple[str, str | None, str | User | None]] = []
     for index, (key, name, url) in enumerate(links):
         if index:
-            segments.append(("\n", None, None))
-        segments.append((f"{_PLATFORM_NAMES.get(key, name)} = ", None, None))
-        segments.append((url, "text_link", url))
+            segments.append((separator, None, None))
+        segments.append((_PLATFORM_NAMES.get(key, name), "text_link", url))
     return segments
 
 
 def format_track_entities(info: TrackInfo) -> tuple[str, list[MessageEntity]]:
-    """Build a track card with one clickable service link on each line."""
+    """Build a track card with clickable service names separated by pipes."""
     segments: list[tuple[str, str | None, str | User | None]] = []
     title = f"{info.artist} - {info.title}" if info.artist else info.title
     segments.append((title, "bold", None))
@@ -107,14 +107,15 @@ def format_artist_entities(info: ArtistInfo) -> tuple[str, list[MessageEntity]]:
         segments.append(("\n" + ", ".join(genre.title() for genre in info.genres), None, None))
     if info.platform_links:
         segments.append(("\n", None, None))
-        segments.extend(_platform_segments(info.platform_links))
+        segments.extend(_platform_segments(info.platform_links, separator="\n"))
     if info.top_tracks:
+        segments.append(("\n", None, None))
         for index, track in enumerate(info.top_tracks, 1):
             if not track.title:
                 continue
             segments.append(("\n", None, None))
             segments.append((f"{index}. {track.title}", None, None))
             if track.links:
-                segments.append(("\n", None, None))
+                segments.append(("  ", None, None))
                 segments.extend(_platform_segments(track.links))
     return build_entities_text(segments)

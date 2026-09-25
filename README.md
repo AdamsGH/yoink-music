@@ -34,7 +34,7 @@ Included in yoink-core as a git submodule at `plugins/yoink-music`.
 
 ## Platform links
 
-Track and artist cards show one clickable platform name per line. The requesting user is mentioned in cards and audio messages when Telegram provides an identifiable user.
+Track cards show clickable platform names in one row separated by ` | `, without service emoji or visible URLs. Artist cards keep platform names on separate lines and top-track links inline. The requesting user is mentioned in cards and audio messages when Telegram provides an identifiable user.
 
 ## Music download
 

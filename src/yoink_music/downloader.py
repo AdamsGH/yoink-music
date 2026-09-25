@@ -21,8 +21,10 @@ import logging
 import shutil
 from typing import TYPE_CHECKING
 
+from yoink_music.formatting import add_requester_mention
+
 if TYPE_CHECKING:
-    from telegram import Bot
+    from telegram import Bot, User
 
     from yoink_music.config import MusicConfig
     from yoink_music.types import TrackInfo
@@ -51,6 +53,7 @@ async def send_track(
     user_id: int | None = None,
     group_id: int | None = None,
     thread_id: int | None = None,
+    requester: User | None = None,
 ) -> bool:
     """Download and send the track as an audio message.
 
@@ -81,6 +84,8 @@ async def send_track(
                 chat_id=chat_id,
                 audio=cached.file_id,
                 reply_to_message_id=reply_to_message_id,
+                message_thread_id=thread_id,
+                **_requester_caption(requester),
             )
             if dl_log and user_id:
                 source_url = _find_source_url(info) or info.title
@@ -145,6 +150,8 @@ async def send_track(
                     duration=int(result.duration) if result.duration else None,
                     thumbnail=await _fetch_thumbnail(info.thumbnail_url) if info.thumbnail_url else None,
                     reply_to_message_id=reply_to_message_id,
+                    message_thread_id=thread_id,
+                    **_requester_caption(requester),
                 )
             if file_cache is not None and msg.audio:
                 await file_cache.put(
@@ -203,6 +210,13 @@ async def send_track(
             group_id=group_id, thread_id=thread_id,
         )
     return False
+
+
+def _requester_caption(requester: User | None) -> dict:
+    if requester is None:
+        return {}
+    text, entities = add_requester_mention("", [], requester)
+    return {"caption": text, "caption_entities": entities}
 
 
 def _find_source_url(info: TrackInfo) -> str | None:

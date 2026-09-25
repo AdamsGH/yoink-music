@@ -13,7 +13,12 @@ from telegram import (
     LinkPreviewOptions,
 )
 
-from yoink_music.emoji_ids import _PLATFORM_NAMES, format_artist_entities, format_track_entities
+from yoink_music.formatting import (
+    _PLATFORM_NAMES,
+    add_requester_mention,
+    format_artist_entities,
+    format_track_entities,
+)
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.parsers.youtube import TRACK_RE as YOUTUBE_RE
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
@@ -85,7 +90,7 @@ async def _handle_music_url(
                     client_secret=cfg.spotify_client_secret if cfg else None,
                     proxy=cfg.proxy_for("spotify") if cfg else None,
                 )
-                results.append(_make_artist_article(url, artist_info))
+                results.append(_make_artist_article(url, artist_info, inline_query.from_user))
             except ResolverError as exc:
                 logger.warning("Artist resolve failed for %s: %s", url, exc)
             continue
@@ -108,7 +113,7 @@ async def _handle_music_url(
         if not info.links:
             continue
 
-        results.append(_make_track_article(url, info))
+        results.append(_make_track_article(url, info, inline_query.from_user))
 
     if not results:
         await inline_query.answer(
@@ -150,15 +155,15 @@ async def _handle_youtube_url(
         return False
 
     await inline_query.answer(
-        [_make_track_article(url_str, info)],
+        [_make_track_article(url_str, info, inline_query.from_user)],
         cache_time=300,
         is_personal=True,
     )
     return True
 
 
-def _make_track_article(url: str, info: TrackInfo) -> InlineQueryResultArticle:
-    text, entities = format_track_entities(info, with_icons=False)
+def _make_track_article(url: str, info: TrackInfo, requester=None) -> InlineQueryResultArticle:
+    text, entities = add_requester_mention(*format_track_entities(info), requester)
     card_title = f"{info.artist} - {info.title}" if info.artist else info.title
     platform_names = " | ".join(_PLATFORM_NAMES.get(k, n) for k, n, _ in info.links)
     preview = None
@@ -181,8 +186,8 @@ def _make_track_article(url: str, info: TrackInfo) -> InlineQueryResultArticle:
     )
 
 
-def _make_artist_article(url: str, info: ArtistInfo) -> InlineQueryResultArticle:
-    text, entities = format_artist_entities(info, with_icons=False)
+def _make_artist_article(url: str, info: ArtistInfo, requester=None) -> InlineQueryResultArticle:
+    text, entities = add_requester_mention(*format_artist_entities(info), requester)
     platform_names = " | ".join(_PLATFORM_NAMES.get(k, n) for k, n, _ in info.platform_links)
     genres_str = ", ".join(g.title() for g in info.genres[:2])
     description = f"{genres_str}  {platform_names}" if genres_str else platform_names

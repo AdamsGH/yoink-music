@@ -7,12 +7,16 @@ import re
 import time
 from typing import TYPE_CHECKING
 
-from telegram import LinkPreviewOptions, Message, MessageEntity, Update
+from telegram import LinkPreviewOptions, Message, MessageEntity, Update, User
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
 from yoink.core.bot.access import AccessPolicy, require_access
 from yoink.core.db.models import UserRole
-from yoink_music.emoji_ids import format_artist_entities, format_track_entities
+from yoink_music.formatting import (
+    add_requester_mention,
+    format_artist_entities,
+    format_track_entities,
+)
 from yoink_music.parsers.artist import SPOTIFY_ARTIST_RE, resolve_spotify_artist
 from yoink_music.platforms import MUSIC_URL_RE, extract_music_urls
 from yoink_music.resolver import MusicResolver, ResolverError
@@ -66,6 +70,7 @@ async def _handle_music_link(
     msg: Message | None = update.effective_message
     if not msg:
         return
+    requester = None if msg.sender_chat else update.effective_user
 
     # Ignore messages sent via this bot's inline mode - _handle_inline_card handles those.
     if msg.via_bot and msg.via_bot.id == context.bot.id:
@@ -104,7 +109,7 @@ async def _handle_music_link(
             continue
 
         if SPOTIFY_ARTIST_RE.search(url):
-            await _handle_artist_url(msg, url, resolver, cfg)
+            await _handle_artist_url(msg, url, resolver, cfg, requester)
             continue
 
         try:
@@ -116,7 +121,7 @@ async def _handle_music_link(
         if not info.links:
             continue
 
-        text_out, entities = format_track_entities(info)
+        text_out, entities = add_requester_mention(*format_track_entities(info), requester)
         preview = None
         if info.thumbnail_url:
             preview = LinkPreviewOptions(
@@ -144,6 +149,7 @@ async def _handle_music_link(
                     user_id=_uid,
                     group_id=_group_id,
                     thread_id=_thread_id,
+                    requester=requester,
                 ))
 
 
@@ -152,6 +158,7 @@ async def _handle_artist_url(
     url: str,
     resolver: MusicResolver,
     cfg: MusicConfig | None,
+    requester: User | None,
 ) -> None:
     if resolver._client is None:
         logger.warning("Artist resolve skipped for %s: resolver http client not started", url)
@@ -168,7 +175,7 @@ async def _handle_artist_url(
         logger.warning("Artist resolve failed for %s: %s", url, exc)
         return
 
-    text_out, entities = format_artist_entities(info)
+    text_out, entities = add_requester_mention(*format_artist_entities(info), requester)
     preview = None
     if info.thumbnail_url:
         preview = LinkPreviewOptions(
@@ -241,11 +248,12 @@ async def _handle_inline_card(
         user_id=_uid,
         group_id=_group_id,
         thread_id=msg.message_thread_id,
+        requester=None if msg.sender_chat else update.effective_user,
     ))
 
 
 async def _download_and_log(bot, chat_id, info, cfg, *, reply_to_message_id, file_cache,
-                            dl_log=None, user_id=None, group_id=None, thread_id=None):
+                            dl_log=None, user_id=None, group_id=None, thread_id=None, requester=None):
     try:
         from yoink_music import downloader
         await downloader.send_track(
@@ -256,6 +264,7 @@ async def _download_and_log(bot, chat_id, info, cfg, *, reply_to_message_id, fil
             user_id=user_id,
             group_id=group_id,
             thread_id=thread_id,
+            requester=requester,
         )
     except Exception as exc:
         logger.exception("Unhandled error in music download task for %r: %s", info.title, exc)

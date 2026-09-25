@@ -32,9 +32,9 @@ Included in yoink-core as a git submodule at `plugins/yoink-music`.
 
 `FeatureSpec(music:inline, default_min_role=user)` controls inline access. The message handler uses `AccessPolicy(min_role=user, check_group_enabled=True, check_thread_policy=True)`. No explicit grant required - accessible to all `user+` by default.
 
-## Platform icons
+## Platform links
 
-Cards sent directly by the bot use custom emoji from the `MusicServicesIcons` pack. Inline results use plain text links (Telegram does not render custom emoji in inline-sent messages).
+Track and artist cards show one clickable platform name per line. The requesting user is mentioned in cards and audio messages when Telegram provides an identifiable user.
 
 ## Music download
 
